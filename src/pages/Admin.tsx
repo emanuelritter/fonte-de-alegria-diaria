@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { LogOut, ShieldOff, Plus, Trash2, Check, X, Star } from "lucide-react";
+import { Download, RefreshCw, Eye, EyeOff } from "lucide-react";
 
 const Admin = () => {
   const { user, isAdmin, loading } = useAuth();
@@ -55,17 +56,202 @@ const Admin = () => {
         <Tabs defaultValue="devocionais">
           <TabsList className="rounded-full">
             <TabsTrigger value="devocionais" className="rounded-full">Devocionais</TabsTrigger>
+            <TabsTrigger value="importacao" className="rounded-full">Importação</TabsTrigger>
             <TabsTrigger value="historias" className="rounded-full">Histórias</TabsTrigger>
             <TabsTrigger value="oracao" className="rounded-full">Oração</TabsTrigger>
             <TabsTrigger value="leitura" className="rounded-full">Plano</TabsTrigger>
           </TabsList>
           <TabsContent value="devocionais"><AdminDevocionais /></TabsContent>
+          <TabsContent value="importacao"><AdminImportacao /></TabsContent>
           <TabsContent value="historias"><AdminHistorias /></TabsContent>
           <TabsContent value="oracao"><AdminOracao /></TabsContent>
           <TabsContent value="leitura"><AdminLeitura /></TabsContent>
         </Tabs>
       </section>
     </PageShell>
+  );
+};
+
+/* ---------------- Importação automática ---------------- */
+const MESES = [
+  "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+  "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
+];
+
+const AdminImportacao = () => {
+  const qc = useQueryClient();
+  const [running, setRunning] = useState(false);
+
+  const { data: progresso, refetch } = useQuery({
+    queryKey: ["admin", "importacao-progresso"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("devocionais_fonte")
+        .select("data, traduzido, erro");
+      if (error) throw error;
+      const total = data.length;
+      const feitos = data.filter((d: any) => d.traduzido).length;
+      const pendentes = total - feitos;
+      const erros = data.filter((d: any) => d.erro && !d.traduzido).length;
+      // Por mês
+      const porMes = MESES.map((nome, i) => {
+        const mes = i + 1;
+        const itens = data.filter((d: any) => parseInt(d.data.slice(5, 7)) === mes);
+        const ok = itens.filter((d: any) => d.traduzido).length;
+        return { mes, nome, total: itens.length, ok };
+      });
+      return { total, feitos, pendentes, erros, porMes };
+    },
+    refetchInterval: 8000,
+  });
+
+  const { data: porMesPub } = useQuery({
+    queryKey: ["admin", "publicados-por-mes"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("devocionais")
+        .select("data, publicado");
+      if (error) throw error;
+      return MESES.map((_, i) => {
+        const mes = i + 1;
+        const itens = data.filter((d: any) => parseInt(d.data.slice(5, 7)) === mes);
+        return {
+          mes,
+          total: itens.length,
+          publicados: itens.filter((d: any) => d.publicado).length,
+        };
+      });
+    },
+    refetchInterval: 8000,
+  });
+
+  const trigger = async () => {
+    setRunning(true);
+    try {
+      const { error } = await supabase.functions.invoke("processar-devocionais", {
+        body: {},
+      });
+      if (error) throw error;
+      toast.success("Lote disparado", { description: "15 devocionais sendo traduzidos agora." });
+      setTimeout(() => refetch(), 2000);
+    } catch (e: any) {
+      toast.error(e.message || "Falha ao disparar");
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const togglePublicarMes = async (mes: number, publicar: boolean) => {
+    const ini = `2026-${String(mes).padStart(2, "0")}-01`;
+    const fim = mes === 12
+      ? "2026-12-31"
+      : `2026-${String(mes + 1).padStart(2, "0")}-01`;
+    const { error } = await supabase
+      .from("devocionais")
+      .update({ publicado: publicar })
+      .gte("data", ini)
+      [mes === 12 ? "lte" : "lt"]("data", fim);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(publicar ? `${MESES[mes - 1]} publicado!` : `${MESES[mes - 1]} despublicado.`);
+    qc.invalidateQueries({ queryKey: ["admin"] });
+    qc.invalidateQueries({ queryKey: ["devocional"] });
+  };
+
+  const pct = progresso ? Math.round((progresso.feitos / Math.max(progresso.total, 1)) * 100) : 0;
+
+  return (
+    <div className="mt-6 space-y-8">
+      <div className="bg-card p-6 rounded-2xl border border-border/50 shadow-soft">
+        <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+          <div>
+            <h2 className="font-serif text-2xl mb-1">Importação automática — Radiant Religion 2026</h2>
+            <p className="text-sm text-muted-foreground">
+              Os 365 devocionais do livro são traduzidos para o português e ganham uma oração pastoral adventista
+              gerada por IA. O processo roda sozinho em segundo plano (a cada 2 minutos).
+            </p>
+          </div>
+          <Button
+            onClick={trigger}
+            disabled={running || (progresso?.pendentes ?? 0) === 0}
+            className="rounded-full bg-primary hover:bg-primary-glow"
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${running ? "animate-spin" : ""}`} />
+            Processar lote agora (15)
+          </Button>
+        </div>
+
+        {progresso && (
+          <>
+            <div className="flex flex-wrap gap-6 text-sm mb-4">
+              <div><span className="text-muted-foreground">Traduzidos:</span> <strong className="text-coral-deep">{progresso.feitos}</strong>/{progresso.total}</div>
+              <div><span className="text-muted-foreground">Pendentes:</span> <strong>{progresso.pendentes}</strong></div>
+              {progresso.erros > 0 && (
+                <div><span className="text-muted-foreground">Com erro (vão tentar de novo):</span> <strong className="text-destructive">{progresso.erros}</strong></div>
+              )}
+            </div>
+            <div className="h-3 bg-secondary rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-sunrise transition-all duration-500"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">{pct}% concluído</p>
+          </>
+        )}
+      </div>
+
+      <div>
+        <h3 className="font-serif text-xl mb-3">Por mês</h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          Devocionais entram como <strong>rascunho</strong> (não publicados). Revise e publique mês a mês quando estiver pronto.
+        </p>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {progresso?.porMes.map((m) => {
+            const pub = porMesPub?.find((p) => p.mes === m.mes);
+            const traduzidoCompleto = m.total > 0 && m.ok === m.total;
+            const publicadoCompleto = pub && pub.total > 0 && pub.publicados === pub.total;
+            return (
+              <div key={m.mes} className="bg-card p-4 rounded-2xl border border-border/50">
+                <div className="flex justify-between items-baseline mb-2">
+                  <p className="font-serif text-lg">{m.nome}</p>
+                  <p className="text-xs text-muted-foreground">{m.ok}/{m.total} traduzidos</p>
+                </div>
+                <div className="h-1.5 bg-secondary rounded-full overflow-hidden mb-3">
+                  <div className="h-full bg-coral" style={{ width: `${(m.ok / Math.max(m.total, 1)) * 100}%` }} />
+                </div>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Publicados: <strong>{pub?.publicados ?? 0}</strong>/{pub?.total ?? 0}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-full flex-1"
+                    disabled={!traduzidoCompleto || publicadoCompleto}
+                    onClick={() => togglePublicarMes(m.mes, true)}
+                  >
+                    <Eye className="mr-1 h-3 w-3" /> Publicar
+                  </Button>
+                  {publicadoCompleto && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="rounded-full"
+                      onClick={() => togglePublicarMes(m.mes, false)}
+                    >
+                      <EyeOff className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
   );
 };
 
