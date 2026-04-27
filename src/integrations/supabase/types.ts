@@ -59,6 +59,45 @@ export type Database = {
         }
         Relationships: []
       }
+      devocionais_fonte: {
+        Row: {
+          created_at: string
+          data: string
+          erro: string | null
+          id: string
+          meditacao: string
+          referencia: string
+          titulo: string
+          traduzido: boolean
+          updated_at: string
+          versiculo: string
+        }
+        Insert: {
+          created_at?: string
+          data: string
+          erro?: string | null
+          id?: string
+          meditacao: string
+          referencia?: string
+          titulo: string
+          traduzido?: boolean
+          updated_at?: string
+          versiculo: string
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          erro?: string | null
+          id?: string
+          meditacao?: string
+          referencia?: string
+          titulo?: string
+          traduzido?: boolean
+          updated_at?: string
+          versiculo?: string
+        }
+        Relationships: []
+      }
       historias: {
         Row: {
           cidade: string | null
