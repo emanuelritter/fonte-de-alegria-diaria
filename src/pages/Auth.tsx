@@ -12,9 +12,10 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 
 const credSchema = z.object({
-  email: z.string().trim().email("E-mail inválido").max(255),
-  password: z.string().min(8, "Mínimo 8 caracteres").max(72),
+  email: z.string().trim().email("E-mail inválido").max(255).nonempty(),
+  password: z.string().min(8, "Mínimo 8 caracteres").max(72).nonempty(),
 });
+type Cred = { email: string; password: string };
 
 const Auth = () => {
   const nav = useNavigate();
@@ -30,7 +31,7 @@ const Auth = () => {
     const parsed = credSchema.safeParse(form);
     if (!parsed.success) { toast.error(parsed.error.issues[0].message); return; }
     setBusy(true);
-    const { error } = await supabase.auth.signInWithPassword(parsed.data);
+    const { error } = await supabase.auth.signInWithPassword(parsed.data as Cred);
     setBusy(false);
     if (error) { toast.error(error.message); return; }
     nav("/admin");
@@ -41,7 +42,7 @@ const Auth = () => {
     if (!parsed.success) { toast.error(parsed.error.issues[0].message); return; }
     setBusy(true);
     const { error } = await supabase.auth.signUp({
-      ...parsed.data,
+      ...(parsed.data as Cred),
       options: { emailRedirectTo: `${window.location.origin}/admin` },
     });
     setBusy(false);
