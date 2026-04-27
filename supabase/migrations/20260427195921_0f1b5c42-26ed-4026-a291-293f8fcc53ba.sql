@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS devocionais_data_unique ON public.devocionais (data);

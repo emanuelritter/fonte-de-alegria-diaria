@@ -1,103 +1,93 @@
-# Fonte de Alegria — Plano do Site
+## Objetivo
 
-## Visão geral
+Automatizar a importação dos 366 devocionais do livro *Radiant Religion* (Ellen G. White) para o banco, mapeados para 2026, com oração gerada por IA (alinhada à doutrina adventista) e link de compartilhamento para Instagram Stories de @fontedealegriadiaria.
 
-Site moderno, vibrante e jovem para o projeto devocional **Fonte de Alegria**, ligado ao livro *Devocional Diário* (Ellen G. White / CPB) e à Igreja Adventista Central de Indaiatuba. O site é a "casa" dos posts diários das redes sociais, conduzindo o leitor pelo funil espiritual de 3 níveis: oração/Bíblia → estudos e Novo Tempo → igreja local.
+## Como vou fazer (visão geral)
 
-## Identidade visual
+```text
+PDF Radiant Religion
+       │
+       ▼
+[1] Script Python local (sandbox)
+    - Parse do PDF inteiro (366 dias)
+    - Extrai por dia: título, versículo, referência, meditação
+    - Mapeia "January 1" → 2026-01-01, ..., "December 31" → 2026-12-31
+    - Salva JSON intermediário (/tmp/devocionais.json) p/ revisão
+       │
+       ▼
+[2] Script Python chama Lovable AI (Gemini)
+    - Para cada dia, gera "oracao" curta (3–5 linhas)
+    - Prompt usa: tema do devocional + diretriz pastoral adventista
+      + base nas 28 Crenças Fundamentais (nistocremos.pdf como contexto)
+    - Salva no mesmo JSON
+       │
+       ▼
+[3] Insert no banco (tabela devocionais já existente)
+    - publicado=false (você revisa no /admin antes de liberar)
+    - cta_nivel=1 por padrão
+    - data=2026-MM-DD
+    - 1 INSERT em lote (UPSERT por data p/ ser idempotente)
+       │
+       ▼
+[4] Frontend: botão "Compartilhar no Instagram"
+    - Na página /devocional/:data e no preview da home
+    - Gera texto pronto + abre instagram://story-camera (mobile)
+    - Fallback: copia texto + abre perfil @fontedealegriadiaria
+```
 
-- **Estilo:** vibrante e jovem, gradientes saturados inspirados na capa (laranja/coral no topo → teal profundo embaixo), sol radiante como elemento gráfico recorrente.
-- **Paleta (da capa, modernizada):**
-  - Coral / laranja queimado (sol nascente)
-  - Teal profundo (águas)
-  - Areia quente (luz)
-  - Off-white (fundo limpo)
-- **Tipografia:** serifada elegante e itálica para títulos ("fonte de alegria" como na capa); sans-serif moderna para corpo.
-- **Microinterações:** fade-in ao rolar, hover-scale em cards, brilho sutil no "sol", botões de compartilhar com animação.
-- **Tom de voz:** pastoral, esperançoso, cristocêntrico — palavras como *comunhão, esperança, graça, fidelidade*. Evitar prosperidade/milagre garantido.
+## Etapas detalhadas
 
-## Páginas e seções
+### 1. Extração do PDF (one-shot, no sandbox)
+- Usar `pdfplumber` para ler as 366 páginas de meditação.
+- Regex para detectar cabeçalhos do tipo `## <Título>, <Mês> <Dia>` (formato confirmado nas primeiras 50 páginas: "God Bids Us Rejoice Always, January 1").
+- Por dia, extrair:
+  - **titulo**: texto antes da vírgula
+  - **data**: mês + dia → `2026-MM-DD`
+  - **versiculo** + **referencia**: primeira citação bíblica do bloco (já vem em formato `"...texto..." Ref X:Y.`)
+  - **meditacao**: corpo entre versículo e início do próximo dia, removendo números de página, marcadores `[N]` e rodapés
+- Saída: `/tmp/devocionais_2026.json` para validação visual antes de inserir.
 
-### 1. Home
+### 2. Geração de oração com IA (Lovable AI Gateway)
+- Modelo: `google/gemini-3-flash-preview` (rápido + barato para 366 chamadas).
+- Prompt do sistema fixo:
+  > "Você é um pastor adventista do sétimo dia. Gere uma oração curta (3 a 5 linhas), em português, em tom acolhedor e jovem, fiel às 28 Crenças Fundamentais da IASD (salvação pela graça, mediação de Cristo no santuário celestial, sábado, segunda vinda). Não invente doutrina, não cite outras igrejas. Termine com 'Em nome de Jesus, amém.'"
+- Prompt do usuário: título + versículo + 1ª frase da meditação.
+- Throttle: 1 req/seg para respeitar rate limit. Tempo estimado: ~7 minutos para 366.
 
-- Hero com gradiente da capa, sol radiante, título em serifa itálica e CTA "Leia o devocional de hoje".
-- Bloco "Devocional de hoje" — preview do texto + botão para a página completa.
-- Bloco "Post do dia nas redes" — embed do último post do Instagram do projeto.
-- Trilha do funil em 3 cards: *Ore e leia* · *Estude com o Novo Tempo* · *Conheça nossa igreja*.
-- Carrossel de histórias de transformação (aprovadas).
-- Rodapé com termos pastorais, créditos à CPB e links das redes.
+### 3. Inserção no banco
+- `INSERT ... ON CONFLICT (data) DO UPDATE` na tabela `devocionais`.
+- Adicionar índice único em `data` (migration) — hoje não existe.
+- Todos com `publicado=false` para você revisar antes de tornar público.
 
-### 2. Devocional diário (`/devocional` e `/devocional/:data`)
+### 4. Frontend — Botão Compartilhar Instagram
+- Componente novo `BotaoCompartilharInstagram` adicionado em:
+  - `src/pages/Devocional.tsx`
+  - `src/components/CtaFunil.tsx` (preview na home)
+- Comportamento:
+  - Texto gerado: `"📖 {titulo}\n\n{versiculo} — {referencia}\n\n{primeiras 280 chars da meditação}...\n\n🙏 {oracao}\n\n@fontedealegriadiaria"`
+  - Mobile (iOS/Android detectado por user-agent): tenta abrir `instagram://story-camera` (Instagram tem deep link específico para criar story; quando não suportado, abrir `https://www.instagram.com/fontedealegriadiaria`).
+  - Sempre copia o texto formatado para o clipboard com `navigator.clipboard.writeText()` + toast "Texto copiado! Cole no seu story 🎉".
+  - Desktop: copia + abre `https://www.instagram.com/fontedealegriadiaria` em nova aba.
+- **Limitação técnica importante**: A API web do Instagram **não permite** publicar diretamente um story a partir de um link. O fluxo realista é "copia texto pronto + abre o app/perfil". Não é possível criar um link que já preencha o story automaticamente sem a API oficial do Meta (que exige aprovação de Business). O botão fará o melhor possível dentro dessas limitações.
 
-- Página com texto do dia (data, versículo-chave, meditação, oração final).
-- Calendário/arquivo navegável por data anterior.
-- Bloco lateral com o post correspondente nas redes.
-- Botões de compartilhar (WhatsApp, Instagram stories, copiar link).
-- CTA rotativo conforme nível do funil definido pelo manual.
+### 5. Painel admin
+- `/admin` já tem CRUD de devocionais. Você verá os 366 com `publicado=false`. Pode:
+  - Revisar conteúdo extraído
+  - Ajustar oração gerada por IA
+  - Marcar `publicado=true` quando liberar (ou usar uma ação "Publicar todos de Janeiro" — adicionarei botão de publicação em massa por mês).
 
-### 3. Plano de leitura bíblica (`/plano-de-leitura`)
+## Riscos e premissas
 
-- Sugestão diária de leitura acompanhando o devocional.
-- Marcação de progresso local (sem login obrigatório, salvo no navegador).
-- Visual em "trilha" mensal.
+- **Qualidade da extração do PDF**: layouts irregulares (notas marginais, quebras) podem deixar trechos sujos. Vou validar visualmente os primeiros 5 dias antes de processar tudo. Se ficar ruim em alguns dias, marco-os com flag `revisar=true` para você corrigir no admin.
+- **Direitos autorais**: o livro é da Ellen G. White Estate (CC/livre para uso devocional sem republicação comercial). O texto será exibido no site com atribuição. Você confirmou intenção evangelística — alinhado ao licenciamento.
+- **IA pode errar tom doutrinário**: revisão humana antes de publicar mitiga. Se quiser, posso adicionar um checkbox "Oração revisada" no admin.
+- **Custo de IA**: ~366 chamadas curtas com Gemini Flash. Cabe folgado no incluso mensal do Lovable AI.
 
-### 4. Histórias de alegria (`/historias`)
+## Entrega
 
-- Grade de cards com depoimentos aprovados (nome ou anônimo, cidade, foto opcional, texto curto).
-- Botão "Compartilhe sua história" → formulário (`/compartilhar`) com nome, contato opcional, história, consentimento de publicação.
-- **Moderação obrigatória:** envio entra como "pendente" e só aparece após aprovação no painel admin.
-
-### 5. Conecte-se (`/conecte-se`)
-
-Hub do funil com 3 blocos visuais:
-
-- **IASD Central de Indaiatuba** — endereço, horários, links de contato/redes da igreja.
-- **TV Novo Tempo** — links para estudos bíblicos online, programação, app.
-- **Pequenos grupos / ministérios locais** — convite suave de integração.
-
-### 6. Pedidos de oração (`/oracao`)
-
-- Formulário simples e acolhedor, com aviso de sigilo.
-- Opção de manter anônimo; nada publicado no site.
-- Linguagem: nunca prometer respostas, apontar para Deus como consolo.
-
-### 7. Sobre / Termos (`/sobre`)
-
-- Propósito do projeto, declaração pastoral, termos de uso (baseado no PDF v7.0), créditos à CPB e à Ellen G. White.
-
-### 8. Painel administrativo (`/admin`, protegido)
-
-- Login (e-mail/senha + Google).
-- **Devocionais:** criar/editar/agendar por data (título, versículo, texto, oração, link do post das redes, nível de CTA).
-- **Histórias:** aprovar / rejeitar / destacar.
-- **Pedidos de oração:** ler em sigilo, marcar como "orado por".
-- **Plano de leitura:** cadastrar leituras por data.
-
-## Funcionalidades técnicas (seção para referência)
-
-- **Lovable Cloud** para banco, autenticação e armazenamento.
-- **Tabelas:** `devocionais`, `historias` (com status: pendente/aprovado/rejeitado), `pedidos_oracao`, `plano_leitura`, `user_roles` (separada, com enum `app_role` e função `has_role` — só você como `admin`).
-- **RLS:** leitura pública apenas de devocionais publicados e histórias aprovadas; pedidos de oração só admin; inserção pública controlada para histórias e pedidos.
-- **Auth:** e-mail/senha + Google; rota `/admin` protegida via `has_role`.
-- **Validação:** Zod em todos os formulários (limites de tamanho, sanitização).
-- **Embed Instagram:** via blockquote oficial do Instagram + script.
-- **SEO:** meta tags por devocional, Open Graph com gradiente da capa.
-- **Responsivo:** mobile-first (maior parte do tráfego virá das redes).
-
-## Escopo do MVP (primeira entrega)
-
-1. Identidade visual completa + design system (cores HSL, tipografia, componentes).
-2. Home, página de devocional com arquivo por data, plano de leitura, histórias, conecte-se, oração, sobre.
-3. Painel admin com login e CRUD de devocionais, moderação de histórias e visualização de pedidos.
-4. Seed com 3–5 devocionais de exemplo para demonstração.
-
-## Fora do escopo agora (futuro)
-
-Newsletter por e-mail, notificações push, app mobile, área logada para leitores, comentários, integração automática com Instagram API.  
-  
-Dominios:  
-Instagram: @fontedealegriadiaria  
-[www.fontedealegria.com.br](http://www.fontedealegria.com.br) (futuramente após construcao)  
-Instagram da Igreja: @iasdcentraldeindaiatuba
-
-&nbsp;
+Após aprovação:
+1. Criar migration: índice único em `devocionais.data`.
+2. Rodar script de extração + IA + inserção (banco passa a ter 366 linhas com `publicado=false`).
+3. Adicionar componente "Compartilhar Instagram" no frontend.
+4. Adicionar ação "Publicar mês inteiro" no `/admin`.
+5. Te entrego um resumo dizendo: "X devocionais importados, Y precisam revisão manual". Você revisa e publica no seu ritmo.
