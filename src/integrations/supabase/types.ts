@@ -14,16 +14,184 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      devocionais: {
+        Row: {
+          created_at: string
+          cta_nivel: number
+          data: string
+          id: string
+          meditacao: string
+          oracao: string | null
+          post_url: string | null
+          publicado: boolean
+          referencia: string
+          titulo: string
+          updated_at: string
+          versiculo: string
+        }
+        Insert: {
+          created_at?: string
+          cta_nivel?: number
+          data: string
+          id?: string
+          meditacao: string
+          oracao?: string | null
+          post_url?: string | null
+          publicado?: boolean
+          referencia: string
+          titulo: string
+          updated_at?: string
+          versiculo: string
+        }
+        Update: {
+          created_at?: string
+          cta_nivel?: number
+          data?: string
+          id?: string
+          meditacao?: string
+          oracao?: string | null
+          post_url?: string | null
+          publicado?: boolean
+          referencia?: string
+          titulo?: string
+          updated_at?: string
+          versiculo?: string
+        }
+        Relationships: []
+      }
+      historias: {
+        Row: {
+          cidade: string | null
+          consentimento: boolean
+          contato: string | null
+          created_at: string
+          depoimento: string
+          destaque: boolean
+          id: string
+          nome: string
+          status: Database["public"]["Enums"]["historia_status"]
+          updated_at: string
+        }
+        Insert: {
+          cidade?: string | null
+          consentimento?: boolean
+          contato?: string | null
+          created_at?: string
+          depoimento: string
+          destaque?: boolean
+          id?: string
+          nome: string
+          status?: Database["public"]["Enums"]["historia_status"]
+          updated_at?: string
+        }
+        Update: {
+          cidade?: string | null
+          consentimento?: boolean
+          contato?: string | null
+          created_at?: string
+          depoimento?: string
+          destaque?: boolean
+          id?: string
+          nome?: string
+          status?: Database["public"]["Enums"]["historia_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      pedidos_oracao: {
+        Row: {
+          anonimo: boolean
+          atendido: boolean
+          contato: string | null
+          created_at: string
+          id: string
+          nome: string | null
+          pedido: string
+        }
+        Insert: {
+          anonimo?: boolean
+          atendido?: boolean
+          contato?: string | null
+          created_at?: string
+          id?: string
+          nome?: string | null
+          pedido: string
+        }
+        Update: {
+          anonimo?: boolean
+          atendido?: boolean
+          contato?: string | null
+          created_at?: string
+          id?: string
+          nome?: string | null
+          pedido?: string
+        }
+        Relationships: []
+      }
+      plano_leitura: {
+        Row: {
+          created_at: string
+          data: string
+          descricao: string | null
+          id: string
+          referencia: string
+          titulo: string
+        }
+        Insert: {
+          created_at?: string
+          data: string
+          descricao?: string | null
+          id?: string
+          referencia: string
+          titulo: string
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          descricao?: string | null
+          id?: string
+          referencia?: string
+          titulo?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
+      historia_status: "pendente" | "aprovada" | "rejeitada"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +318,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+      historia_status: ["pendente", "aprovada", "rejeitada"],
+    },
   },
 } as const
