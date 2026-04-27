@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { CtaFunil } from "@/components/CtaFunil";
 import { useDevocionalHoje, useDevocionalPorData, useArquivoDevocionais } from "@/hooks/useDevocional";
 import { toast } from "sonner";
+import { CompartilharInstagram } from "@/components/CompartilharInstagram";
 
 const formatDate = (s: string) =>
   new Date(s + "T00:00").toLocaleDateString("pt-BR", {
@@ -85,6 +86,13 @@ const Devocional = () => {
             )}
 
             <div className="mt-10 flex flex-wrap items-center gap-3 pt-6 border-t border-border">
+              <CompartilharInstagram
+                titulo={dev.titulo}
+                versiculo={dev.versiculo}
+                referencia={dev.referencia}
+                meditacao={dev.meditacao}
+                oracao={dev.oracao}
+              />
               <Button onClick={share} variant="outline" className="rounded-full">
                 <Share2 className="mr-2 h-4 w-4" /> Compartilhar
               </Button>
