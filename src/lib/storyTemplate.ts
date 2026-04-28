@@ -1,11 +1,15 @@
-/* Template fixo do Stories — 1080x1920, identidade visual Fonte de Alegria. */
+/* Template do Stories — 1080x1920, identidade Fonte de Alegria.
+   Layout sequencial com altura medida + auto-shrink para nunca sobrepor. */
 import {
   ensureFonts,
   drawWrappedText,
   measureWrapped,
+  wrapLines,
   canvasToBlob,
   formatDataLonga,
+  loadImage,
 } from "./canvasUtils";
+import sunIconUrl from "@/assets/sun-icon.png";
 
 export interface StoryParams {
   data: string;
@@ -18,54 +22,15 @@ export interface StoryParams {
 const W = 1080;
 const H = 1920;
 
-/* Cores em hex (extraídas do design system HSL do projeto) */
-const COLOR_LIGHT_TOP = "#FFE9C7"; // creme dourado
-const COLOR_CORAL = "#F1684E";
-const COLOR_CORAL_DEEP = "#D5482E";
-const COLOR_TEAL_DEEP = "#0B3640";
-const COLOR_WHITE = "#FFFFFF";
-
-const drawBackground = (ctx: CanvasRenderingContext2D) => {
-  // Gradiente vertical sunrise (igual ao do site)
-  const grad = ctx.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0, COLOR_LIGHT_TOP);
-  grad.addColorStop(0.28, COLOR_CORAL);
-  grad.addColorStop(0.62, COLOR_CORAL_DEEP);
-  grad.addColorStop(1, COLOR_TEAL_DEEP);
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, H);
-
-  // Sol nascente — círculo radiante na base
-  const sunY = H - 320;
-  const sunR = 380;
-  const sunGrad = ctx.createRadialGradient(W / 2, sunY, 30, W / 2, sunY, sunR);
-  sunGrad.addColorStop(0, "rgba(255, 240, 200, 0.95)");
-  sunGrad.addColorStop(0.4, "rgba(255, 180, 120, 0.55)");
-  sunGrad.addColorStop(1, "rgba(255, 150, 100, 0)");
-  ctx.fillStyle = sunGrad;
-  ctx.beginPath();
-  ctx.arc(W / 2, sunY, sunR, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Núcleo do sol
-  const coreGrad = ctx.createRadialGradient(W / 2, sunY, 5, W / 2, sunY, 90);
-  coreGrad.addColorStop(0, "#FFF8E1");
-  coreGrad.addColorStop(1, "rgba(255,230,180,0)");
-  ctx.fillStyle = coreGrad;
-  ctx.beginPath();
-  ctx.arc(W / 2, sunY, 90, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Brilho sutil de textura
-  ctx.fillStyle = "rgba(255,255,255,0.04)";
-  for (let i = 0; i < 80; i++) {
-    const x = Math.random() * W;
-    const y = Math.random() * H * 0.6;
-    const r = Math.random() * 2.2;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
-  }
+const COLOR = {
+  cream: "#FFE9C7",
+  coral: "#F1684E",
+  coralDeep: "#D5482E",
+  teal: "#0F4451",
+  tealDeep: "#0B3640",
+  gold: "#F4C04D",
+  goldSoft: "#FFD77A",
+  white: "#FFFFFF",
 };
 
 const roundedRect = (
@@ -81,8 +46,107 @@ const roundedRect = (
   ctx.closePath();
 };
 
+const drawBackground = (ctx: CanvasRenderingContext2D, sunImg: HTMLImageElement | null) => {
+  // Bloco coral sólido (topo ~70%)
+  ctx.fillStyle = COLOR.coral;
+  ctx.fillRect(0, 0, W, H);
+
+  // Bloco teal sólido na base com diagonal
+  const splitY = H * 0.72;
+  ctx.fillStyle = COLOR.tealDeep;
+  ctx.beginPath();
+  ctx.moveTo(0, splitY + 80);
+  ctx.lineTo(W, splitY - 60);
+  ctx.lineTo(W, H);
+  ctx.lineTo(0, H);
+  ctx.closePath();
+  ctx.fill();
+
+  // Faixa coral-deep sutil sobre o bloco superior (textura de pôster)
+  const grad = ctx.createLinearGradient(0, 0, 0, splitY);
+  grad.addColorStop(0, "rgba(255, 200, 140, 0.35)");
+  grad.addColorStop(1, "rgba(213, 72, 46, 0.0)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, splitY);
+
+  // Anéis dourados decorativos (canto superior direito)
+  ctx.strokeStyle = "rgba(244, 192, 77, 0.55)";
+  ctx.lineWidth = 3;
+  for (let r = 60; r <= 200; r += 35) {
+    ctx.beginPath();
+    ctx.arc(W - 80, 220, r, -Math.PI / 2, Math.PI);
+    ctx.stroke();
+  }
+
+  // Sol PNG grande, atrás do conteúdo central, com baixa opacidade
+  if (sunImg) {
+    const size = 720;
+    ctx.save();
+    ctx.globalAlpha = 0.14;
+    ctx.drawImage(sunImg, (W - size) / 2, splitY - size * 0.55, size, size);
+    ctx.restore();
+
+    // Sol pequeno como selo no topo (esquerda da etiqueta)
+    ctx.save();
+    ctx.globalAlpha = 0.95;
+    ctx.drawImage(sunImg, W / 2 - 230, 175, 70, 70);
+    ctx.restore();
+  }
+
+  // Arco dourado fino na base (sob o teal)
+  ctx.strokeStyle = "rgba(244, 192, 77, 0.4)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(W / 2, H + 200, 600, Math.PI, 2 * Math.PI);
+  ctx.stroke();
+};
+
+/** Calcula o melhor tamanho de fonte para caber em um maxHeight. */
+const fitFont = (
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  fontTpl: (size: number) => string,
+  sizes: number[],
+  maxWidth: number,
+  maxHeight: number,
+  lineRatio = 1.15,
+): { size: number; height: number } => {
+  for (const s of sizes) {
+    ctx.font = fontTpl(s);
+    const h = measureWrapped(ctx, text, maxWidth, s * lineRatio);
+    if (h <= maxHeight) return { size: s, height: h };
+  }
+  const s = sizes[sizes.length - 1];
+  ctx.font = fontTpl(s);
+  return { size: s, height: measureWrapped(ctx, text, maxWidth, s * lineRatio) };
+};
+
+/** Trunca para no máximo N linhas com "…". */
+const clampLines = (
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+  maxLines: number,
+): string => {
+  const lines = wrapLines(ctx, text, maxWidth).filter((l) => l !== "");
+  if (lines.length <= maxLines) return text;
+  const kept = lines.slice(0, maxLines);
+  let last = kept[maxLines - 1];
+  while (last.length > 0 && ctx.measureText(last + "…").width > maxWidth) {
+    last = last.slice(0, -1);
+  }
+  kept[maxLines - 1] = last.replace(/[\s,;:.!?-]+$/, "") + "…";
+  return kept.join(" ");
+};
+
 export const renderStoryPNG = async (p: StoryParams): Promise<Blob> => {
   await ensureFonts();
+  let sunImg: HTMLImageElement | null = null;
+  try {
+    sunImg = await loadImage(sunIconUrl);
+  } catch {
+    sunImg = null;
+  }
 
   const canvas = document.createElement("canvas");
   canvas.width = W;
@@ -90,78 +154,134 @@ export const renderStoryPNG = async (p: StoryParams): Promise<Blob> => {
   const ctx = canvas.getContext("2d")!;
   ctx.textBaseline = "alphabetic";
 
-  drawBackground(ctx);
+  drawBackground(ctx, sunImg);
 
-  /* Área segura: 250 topo, 400 base. Conteúdo entre 250-1520. */
-  const SAFE_TOP = 250;
-  const SAFE_BOTTOM = 400;
   const PADDING_X = 90;
   const CONTENT_W = W - PADDING_X * 2;
 
-  // 1. Etiqueta superior
-  ctx.fillStyle = "rgba(255,255,255,0.85)";
-  ctx.font = "600 28px Inter, sans-serif";
+  // ============ RODAPÉ (faixa teal sólida — fixa) ============
+  const FOOTER_H = 180;
+  const footerY = H - FOOTER_H;
+  ctx.fillStyle = "rgba(11, 54, 64, 0.85)";
+  ctx.fillRect(0, footerY, W, FOOTER_H);
+  // Linha dourada superior
+  ctx.fillStyle = COLOR.gold;
+  ctx.fillRect(0, footerY, W, 4);
+
   ctx.textAlign = "center";
-  ctx.fillText("DEVOCIONAL DO DIA", W / 2, SAFE_TOP + 30);
+  ctx.fillStyle = COLOR.white;
+  ctx.font = "700 32px Inter, sans-serif";
+  ctx.fillText("fontedealegria.com.br", W / 2, footerY + 70);
+  ctx.fillStyle = COLOR.goldSoft;
+  ctx.font = "500 28px Inter, sans-serif";
+  ctx.fillText("@fontedealegriadiaria", W / 2, footerY + 115);
 
-  ctx.fillStyle = "rgba(255,255,255,0.7)";
-  ctx.font = "400 26px Inter, sans-serif";
-  ctx.fillText(formatDataLonga(p.data), W / 2, SAFE_TOP + 70);
-
-  // Pequeno divisor decorativo
-  ctx.strokeStyle = "rgba(255,255,255,0.5)";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(W / 2 - 30, SAFE_TOP + 100);
-  ctx.lineTo(W / 2 + 30, SAFE_TOP + 100);
-  ctx.stroke();
-
-  // 2. Título — Fraunces grande, centralizado
-  ctx.fillStyle = COLOR_WHITE;
-  // Tamanho dinâmico conforme tamanho do título
-  const titleSize = p.titulo.length > 38 ? 78 : p.titulo.length > 22 ? 96 : 116;
-  ctx.font = `700 ${titleSize}px Fraunces, Georgia, serif`;
-  const titleY = SAFE_TOP + 200;
-  const titleH = measureWrapped(ctx, p.titulo, CONTENT_W, titleSize * 1.05);
-  drawWrappedText(ctx, p.titulo, W / 2, titleY + titleSize, CONTENT_W, titleSize * 1.05);
-
-  // 3. Card translúcido com versículo
-  const cardY = titleY + titleH + 100;
-  ctx.font = "italic 400 38px Fraunces, Georgia, serif";
-  const versH = measureWrapped(ctx, `"${p.versiculo}"`, CONTENT_W - 80, 50);
-  const cardH = versH + 130;
-  ctx.fillStyle = "rgba(255,255,255,0.18)";
-  roundedRect(ctx, PADDING_X, cardY, CONTENT_W, cardH, 32);
-  ctx.fill();
-  ctx.strokeStyle = "rgba(255,255,255,0.35)";
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  ctx.fillStyle = COLOR_WHITE;
-  ctx.font = "italic 400 38px Fraunces, Georgia, serif";
-  drawWrappedText(
-    ctx, `"${p.versiculo}"`,
-    W / 2, cardY + 60,
-    CONTENT_W - 80, 50,
-  );
-  ctx.fillStyle = "rgba(255,255,255,0.85)";
-  ctx.font = "600 26px Inter, sans-serif";
-  ctx.fillText(`— ${p.referencia}`, W / 2, cardY + cardH - 30);
-
-  // 4. Hook (CTA inspirador) — acima do rodapé, dentro da zona segura
-  const hookY = H - SAFE_BOTTOM - 240;
-  ctx.fillStyle = COLOR_WHITE;
-  ctx.font = "600 38px Inter, sans-serif";
-  drawWrappedText(ctx, p.hook, W / 2, hookY, CONTENT_W, 52);
-
-  // 5. Rodapé fixo
-  const footY = H - SAFE_BOTTOM - 60;
+  // ============ CABEÇALHO (etiqueta + data) ============
+  const HEADER_TOP = 240;
+  ctx.textAlign = "center";
   ctx.fillStyle = "rgba(255,255,255,0.95)";
   ctx.font = "700 30px Inter, sans-serif";
-  ctx.fillText("fontedealegria.com", W / 2, footY);
-  ctx.fillStyle = "rgba(255,255,255,0.75)";
-  ctx.font = "500 26px Inter, sans-serif";
-  ctx.fillText("@fontedealegriadiaria", W / 2, footY + 40);
+  ctx.fillText("DEVOCIONAL DO DIA", W / 2, HEADER_TOP);
+
+  ctx.fillStyle = "rgba(255,255,255,0.8)";
+  ctx.font = "400 26px Inter, sans-serif";
+  ctx.fillText(formatDataLonga(p.data), W / 2, HEADER_TOP + 42);
+
+  // Divisor dourado
+  ctx.strokeStyle = COLOR.gold;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(W / 2 - 36, HEADER_TOP + 70);
+  ctx.lineTo(W / 2 + 36, HEADER_TOP + 70);
+  ctx.stroke();
+
+  // ============ ÁREA DE CONTEÚDO ============
+  // Espaço útil entre header e footer
+  const CONTENT_TOP = HEADER_TOP + 110; // ~350
+  const CONTENT_BOTTOM = footerY - 40;  // ~1700
+  const CONTENT_H = CONTENT_BOTTOM - CONTENT_TOP; // ~1350
+
+  // Reservas para hook (CTA) — fixo, no fim do bloco de conteúdo
+  const HOOK_MAX_LINES = 2;
+  const HOOK_FONT = 36;
+  const HOOK_LINE = HOOK_FONT * 1.25;
+  ctx.font = `600 ${HOOK_FONT}px Inter, sans-serif`;
+  const hookText = clampLines(ctx, p.hook, CONTENT_W, HOOK_MAX_LINES);
+  const hookH = measureWrapped(ctx, hookText, CONTENT_W, HOOK_LINE);
+  const HOOK_TOP_GAP = 50;
+
+  // Espaço para título + card de versículo
+  const blockH = CONTENT_H - hookH - HOOK_TOP_GAP;
+
+  // Título — proporção 35% do bloco
+  const titleMaxH = blockH * 0.40;
+  const titleFit = fitFont(
+    ctx, p.titulo,
+    (s) => `700 ${s}px Fraunces, Georgia, serif`,
+    [120, 108, 96, 84, 72, 64],
+    CONTENT_W, titleMaxH, 1.05,
+  );
+
+  // Card versículo — restante
+  const cardPadV = 60;
+  const cardPadH = 50;
+  const refH = 50;
+  const titleBottomGap = 60;
+  const versMaxH = blockH - titleFit.height - titleBottomGap - cardPadV * 2 - refH;
+  const versText = `"${p.versiculo}"`;
+  const versFit = fitFont(
+    ctx, versText,
+    (s) => `italic 400 ${s}px Fraunces, Georgia, serif`,
+    [42, 38, 34, 30, 26, 24],
+    CONTENT_W - cardPadH * 2, Math.max(120, versMaxH), 1.25,
+  );
+
+  // Posicionamento real
+  let cy = CONTENT_TOP;
+
+  // Título
+  ctx.fillStyle = COLOR.white;
+  ctx.font = `700 ${titleFit.size}px Fraunces, Georgia, serif`;
+  ctx.shadowColor = "rgba(0,0,0,0.18)";
+  ctx.shadowBlur = 12;
+  ctx.shadowOffsetY = 4;
+  drawWrappedText(
+    ctx, p.titulo,
+    W / 2, cy + titleFit.size,
+    CONTENT_W, titleFit.size * 1.05,
+  );
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+  cy += titleFit.height + titleBottomGap;
+
+  // Card translúcido com versículo
+  const cardH = versFit.height + cardPadV * 2 + refH;
+  ctx.fillStyle = "rgba(255,255,255,0.16)";
+  roundedRect(ctx, PADDING_X, cy, CONTENT_W, cardH, 28);
+  ctx.fill();
+  ctx.strokeStyle = COLOR.gold;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  ctx.fillStyle = COLOR.white;
+  ctx.font = `italic 400 ${versFit.size}px Fraunces, Georgia, serif`;
+  drawWrappedText(
+    ctx, versText,
+    W / 2, cy + cardPadV + versFit.size,
+    CONTENT_W - cardPadH * 2, versFit.size * 1.25,
+  );
+
+  ctx.fillStyle = COLOR.goldSoft;
+  ctx.font = "600 26px Inter, sans-serif";
+  ctx.fillText(`— ${p.referencia}`, W / 2, cy + cardH - 24);
+
+  cy += cardH + HOOK_TOP_GAP;
+
+  // Hook
+  ctx.fillStyle = COLOR.white;
+  ctx.font = `600 ${HOOK_FONT}px Inter, sans-serif`;
+  drawWrappedText(ctx, hookText, W / 2, cy + HOOK_FONT, CONTENT_W, HOOK_LINE);
 
   return canvasToBlob(canvas);
 };
