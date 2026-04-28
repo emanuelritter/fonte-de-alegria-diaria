@@ -7,6 +7,7 @@ const corsHeaders = {
 };
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
@@ -63,19 +64,47 @@ Deno.serve(async (req) => {
 
   try {
     const { devocional_id, regenerar } = await req.json();
-    if (!devocional_id) {
+    if (!devocional_id || typeof devocional_id !== "string") {
       return new Response(JSON.stringify({ error: "devocional_id obrigatório" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
-    const { data: dev, error } = await supabase
+    // Gate `regenerar` behind admin auth — anon visitors cannot bypass cache.
+    let isAdmin = false;
+    if (regenerar) {
+      const authHeader = req.headers.get("Authorization");
+      if (authHeader?.startsWith("Bearer ")) {
+        const userClient = createClient(SUPABASE_URL, ANON_KEY, {
+          global: { headers: { Authorization: authHeader } },
+        });
+        const { data: claims } = await userClient.auth.getClaims(authHeader.replace("Bearer ", ""));
+        if (claims?.claims?.sub) {
+          const { data: roleRow } = await userClient.rpc("is_current_user_admin");
+          isAdmin = roleRow === true;
+        }
+      }
+      if (!isAdmin) {
+        return new Response(JSON.stringify({ error: "Apenas administradores podem regenerar." }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // Public read uses anon key so RLS enforces "publicado=true AND data<=today".
+    const publicClient = createClient(SUPABASE_URL, ANON_KEY);
+    const { data: dev, error } = await publicClient
       .from("devocionais")
-      .select("*")
+      .select("id, titulo, versiculo, referencia, meditacao, oracao, carrossel_textos, carrossel_legenda, publicado, data")
       .eq("id", devocional_id)
+      .eq("publicado", true)
+      .lte("data", new Date().toISOString().slice(0, 10))
       .maybeSingle();
-    if (error || !dev) throw new Error("Devocional não encontrado");
+    if (error || !dev) {
+      return new Response(JSON.stringify({ error: "Devocional não disponível." }), {
+        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     if (!regenerar && dev.carrossel_textos && dev.carrossel_legenda) {
       return new Response(
@@ -129,10 +158,12 @@ Crie o carrossel de 7 slides + legenda.`;
     const args = JSON.parse(tc.function.arguments);
     const { legenda, ...slides } = args;
 
-    await supabase
+    const adminClient = createClient(SUPABASE_URL, SERVICE_KEY);
+    await adminClient
       .from("devocionais")
       .update({ carrossel_textos: slides, carrossel_legenda: legenda })
-      .eq("id", devocional_id);
+      .eq("id", devocional_id)
+      .eq("publicado", true);
 
     return new Response(JSON.stringify({ slides, legenda, cached: false }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -140,7 +171,7 @@ Crie o carrossel de 7 slides + legenda.`;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("gerar-carrossel-devocional error:", msg);
-    return new Response(JSON.stringify({ error: msg }), {
+    return new Response(JSON.stringify({ error: "Não foi possível gerar agora. Tente novamente em instantes." }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

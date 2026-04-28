@@ -229,6 +229,27 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_list_historias: {
+        Args: never
+        Returns: {
+          cidade: string | null
+          consentimento: boolean
+          contato: string | null
+          created_at: string
+          depoimento: string
+          destaque: boolean
+          id: string
+          nome: string
+          status: Database["public"]["Enums"]["historia_status"]
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "historias"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -236,6 +257,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_current_user_admin: { Args: never; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"

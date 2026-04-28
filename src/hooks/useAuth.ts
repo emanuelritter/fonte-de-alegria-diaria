@@ -15,13 +15,10 @@ export const useAuth = () => {
       if (sess?.user) {
         // defer role check
         setTimeout(async () => {
-          const { data } = await supabase
-            .from("user_roles")
-            .select("role")
-            .eq("user_id", sess.user.id)
-            .eq("role", "admin")
-            .maybeSingle();
-          setIsAdmin(!!data);
+          // Server-checked admin probe (SECURITY DEFINER RPC). Cannot be
+          // forged by editing client state — RLS still enforces DB writes.
+          const { data } = await supabase.rpc("is_current_user_admin");
+          setIsAdmin(data === true);
         }, 0);
       } else {
         setIsAdmin(false);
@@ -32,13 +29,8 @@ export const useAuth = () => {
       setSession(sess);
       setUser(sess?.user ?? null);
       if (sess?.user) {
-        const { data } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", sess.user.id)
-          .eq("role", "admin")
-          .maybeSingle();
-        setIsAdmin(!!data);
+        const { data } = await supabase.rpc("is_current_user_admin");
+        setIsAdmin(data === true);
       }
       setLoading(false);
     });

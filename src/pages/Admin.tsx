@@ -425,8 +425,11 @@ const AdminHistorias = () => {
   const { data } = useQuery({
     queryKey: ["admin", "historias"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("historias").select("*").order("created_at", { ascending: false });
-      if (error) throw error; return data ?? [];
+      // Use admin RPC so contato (sensitive) is delivered only after
+      // a server-side has_role check.
+      const { data, error } = await supabase.rpc("admin_list_historias");
+      if (error) throw error;
+      return (data ?? []) as any[];
     },
   });
 

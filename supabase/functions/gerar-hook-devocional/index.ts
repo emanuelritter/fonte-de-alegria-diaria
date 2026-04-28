@@ -7,6 +7,7 @@ const corsHeaders = {
 };
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
@@ -37,19 +38,26 @@ Deno.serve(async (req) => {
 
   try {
     const { devocional_id } = await req.json();
-    if (!devocional_id) {
+    if (!devocional_id || typeof devocional_id !== "string") {
       return new Response(JSON.stringify({ error: "devocional_id obrigatório" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
-    const { data: dev, error } = await supabase
+    // Use anon-key client first so RLS enforces "publicado" visibility.
+    const publicClient = createClient(SUPABASE_URL, ANON_KEY);
+    const { data: dev, error } = await publicClient
       .from("devocionais")
-      .select("*")
+      .select("id, titulo, versiculo, referencia, meditacao, hook_stories, publicado, data")
       .eq("id", devocional_id)
+      .eq("publicado", true)
+      .lte("data", new Date().toISOString().slice(0, 10))
       .maybeSingle();
-    if (error || !dev) throw new Error("Devocional não encontrado");
+    if (error || !dev) {
+      return new Response(JSON.stringify({ error: "Devocional não disponível." }), {
+        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     if (dev.hook_stories) {
       return new Response(JSON.stringify({ hook: dev.hook_stories, cached: true }), {
@@ -97,7 +105,13 @@ Crie o hook.`;
     if (!tc) throw new Error("Sem tool_call");
     const { hook } = JSON.parse(tc.function.arguments);
 
-    await supabase.from("devocionais").update({ hook_stories: hook }).eq("id", devocional_id);
+    // Service-role write back, scoped to the same published row.
+    const adminClient = createClient(SUPABASE_URL, SERVICE_KEY);
+    await adminClient
+      .from("devocionais")
+      .update({ hook_stories: hook })
+      .eq("id", devocional_id)
+      .eq("publicado", true);
 
     return new Response(JSON.stringify({ hook, cached: false }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -105,7 +119,7 @@ Crie o hook.`;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("gerar-hook-devocional error:", msg);
-    return new Response(JSON.stringify({ error: msg }), {
+    return new Response(JSON.stringify({ error: "Não foi possível gerar agora. Tente novamente em instantes." }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
