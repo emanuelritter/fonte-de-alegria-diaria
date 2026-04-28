@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Navigate, Link } from "react-router-dom";
+import { useState } from "react";
+import { Navigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageShell } from "@/components/Layout/PageShell";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { LogOut, ShieldOff, Plus, Trash2, Check, X, Star } from "lucide-react";
-import { Download, RefreshCw, Eye, EyeOff } from "lucide-react";
+import { CalendarDays, FileText, CircleCheck, CircleDashed } from "lucide-react";
 
 const Admin = () => {
   const { user, isAdmin, loading } = useAuth();
@@ -56,13 +56,11 @@ const Admin = () => {
         <Tabs defaultValue="devocionais">
           <TabsList className="rounded-full">
             <TabsTrigger value="devocionais" className="rounded-full">Devocionais</TabsTrigger>
-            <TabsTrigger value="importacao" className="rounded-full">Importação</TabsTrigger>
             <TabsTrigger value="historias" className="rounded-full">Histórias</TabsTrigger>
             <TabsTrigger value="oracao" className="rounded-full">Oração</TabsTrigger>
             <TabsTrigger value="leitura" className="rounded-full">Plano</TabsTrigger>
           </TabsList>
           <TabsContent value="devocionais"><AdminDevocionais /></TabsContent>
-          <TabsContent value="importacao"><AdminImportacao /></TabsContent>
           <TabsContent value="historias"><AdminHistorias /></TabsContent>
           <TabsContent value="oracao"><AdminOracao /></TabsContent>
           <TabsContent value="leitura"><AdminLeitura /></TabsContent>
@@ -72,191 +70,254 @@ const Admin = () => {
   );
 };
 
-/* ---------------- Importação automática ---------------- */
-const MESES = [
-  "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
-  "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
-];
+/* ---------------- Devocionais ---------------- */
+const AdminDevocionais = () => {
+  return (
+    <div className="mt-6">
+      <Tabs defaultValue="semana">
+        <TabsList className="rounded-full">
+          <TabsTrigger value="semana" className="rounded-full">
+            <CalendarDays className="mr-2 h-4 w-4" /> Semana
+          </TabsTrigger>
+          <TabsTrigger value="avulso" className="rounded-full">
+            <FileText className="mr-2 h-4 w-4" /> Avulso
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="semana"><AdminSemana /></TabsContent>
+        <TabsContent value="avulso"><AdminAvulso /></TabsContent>
+      </Tabs>
+    </div>
+  );
+};
 
-const AdminImportacao = () => {
+/* ---------- Modo Semana: 7 cards lado a lado ---------- */
+const fmtBR = (iso: string) =>
+  new Date(iso + "T00:00").toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" });
+
+/** Retorna a segunda-feira da semana de uma data. */
+const segundaDaSemana = (d: Date) => {
+  const x = new Date(d);
+  const dow = (x.getDay() + 6) % 7; // 0 = segunda
+  x.setDate(x.getDate() - dow);
+  x.setHours(0, 0, 0, 0);
+  return x;
+};
+const isoDate = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+};
+
+type SemanaItem = {
+  data: string;
+  id?: string;
+  titulo: string;
+  versiculo: string;
+  referencia: string;
+  meditacao: string;
+  oracao: string;
+  publicado: boolean;
+};
+
+const AdminSemana = () => {
   const qc = useQueryClient();
-  const [running, setRunning] = useState(false);
-
-  const { data: progresso, refetch } = useQuery({
-    queryKey: ["admin", "importacao-progresso"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("devocionais_fonte")
-        .select("data, traduzido, erro");
-      if (error) throw error;
-      const total = data.length;
-      const feitos = data.filter((d: any) => d.traduzido).length;
-      const pendentes = total - feitos;
-      const erros = data.filter((d: any) => d.erro && !d.traduzido).length;
-      // Por mês
-      const porMes = MESES.map((nome, i) => {
-        const mes = i + 1;
-        const itens = data.filter((d: any) => parseInt(d.data.slice(5, 7)) === mes);
-        const ok = itens.filter((d: any) => d.traduzido).length;
-        return { mes, nome, total: itens.length, ok };
-      });
-      return { total, feitos, pendentes, erros, porMes };
-    },
-    refetchInterval: 8000,
+  const [inicio, setInicio] = useState<string>(() => {
+    const seg = segundaDaSemana(new Date());
+    return isoDate(seg);
   });
 
-  const { data: porMesPub } = useQuery({
-    queryKey: ["admin", "publicados-por-mes"],
+  const datas = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(inicio + "T00:00");
+    d.setDate(d.getDate() + i);
+    return isoDate(d);
+  });
+
+  const { data: existentes } = useQuery({
+    queryKey: ["admin", "semana", inicio],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("devocionais")
-        .select("data, publicado");
+        .select("*")
+        .in("data", datas);
       if (error) throw error;
-      return MESES.map((_, i) => {
-        const mes = i + 1;
-        const itens = data.filter((d: any) => parseInt(d.data.slice(5, 7)) === mes);
-        return {
-          mes,
-          total: itens.length,
-          publicados: itens.filter((d: any) => d.publicado).length,
-        };
-      });
+      return data ?? [];
     },
-    refetchInterval: 8000,
   });
 
-  const trigger = async () => {
-    setRunning(true);
-    try {
-      const { error } = await supabase.functions.invoke("processar-devocionais", {
-        body: {},
-      });
-      if (error) throw error;
-      toast.success("Lote disparado", { description: "15 devocionais sendo traduzidos agora." });
-      setTimeout(() => refetch(), 2000);
-    } catch (e: any) {
-      toast.error(e.message || "Falha ao disparar");
-    } finally {
-      setRunning(false);
-    }
+  const [itens, setItens] = useState<SemanaItem[]>([]);
+  const [salvando, setSalvando] = useState(false);
+
+  // Sincroniza estado local com dados do banco quando muda a semana
+  useState(() => undefined); // noop
+  if (existentes && itens.length === 0) {
+    const inicial = datas.map((data) => {
+      const ex = existentes.find((e: any) => e.data === data);
+      return ex
+        ? {
+            data,
+            id: ex.id,
+            titulo: ex.titulo,
+            versiculo: ex.versiculo,
+            referencia: ex.referencia,
+            meditacao: ex.meditacao,
+            oracao: ex.oracao ?? "",
+            publicado: ex.publicado,
+          }
+        : { data, titulo: "", versiculo: "", referencia: "", meditacao: "", oracao: "", publicado: false };
+    });
+    setItens(inicial);
+  }
+
+  const recarregar = (novoInicio: string) => {
+    setInicio(novoInicio);
+    setItens([]); // força recarregar via efeito acima
+    qc.invalidateQueries({ queryKey: ["admin", "semana"] });
   };
 
-  const togglePublicarMes = async (mes: number, publicar: boolean) => {
-    const ini = `2026-${String(mes).padStart(2, "0")}-01`;
-    const fim = mes === 12
-      ? "2026-12-31"
-      : `2026-${String(mes + 1).padStart(2, "0")}-01`;
-    const { error } = await supabase
-      .from("devocionais")
-      .update({ publicado: publicar })
-      .gte("data", ini)
-      [mes === 12 ? "lte" : "lt"]("data", fim);
-    if (error) {
-      toast.error(error.message);
+  const navegar = (dias: number) => {
+    const d = new Date(inicio + "T00:00");
+    d.setDate(d.getDate() + dias);
+    recarregar(isoDate(d));
+  };
+
+  const update = (i: number, patch: Partial<SemanaItem>) => {
+    setItens((prev) => prev.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
+  };
+
+  const salvarTudo = async (publicar: boolean) => {
+    const validos = itens.filter(
+      (i) => i.titulo.trim() && i.versiculo.trim() && i.referencia.trim() && i.meditacao.trim(),
+    );
+    if (validos.length === 0) {
+      toast.error("Preencha pelo menos um devocional completo (título, versículo, referência, meditação).");
       return;
     }
-    toast.success(publicar ? `${MESES[mes - 1]} publicado!` : `${MESES[mes - 1]} despublicado.`);
-    qc.invalidateQueries({ queryKey: ["admin"] });
-    qc.invalidateQueries({ queryKey: ["devocional"] });
+    setSalvando(true);
+    try {
+      const payload = validos.map((i) => ({
+        ...(i.id ? { id: i.id } : {}),
+        data: i.data,
+        titulo: i.titulo,
+        versiculo: i.versiculo,
+        referencia: i.referencia,
+        meditacao: i.meditacao,
+        oracao: i.oracao || null,
+        publicado: publicar ? true : i.publicado,
+        cta_nivel: 1,
+      }));
+      const { error } = await supabase.from("devocionais").upsert(payload, { onConflict: "data" });
+      if (error) throw error;
+      toast.success(`${validos.length} devocionais salvos${publicar ? " e publicados" : " como rascunho"}.`);
+      setItens([]); // recarrega da fonte
+      qc.invalidateQueries({ queryKey: ["admin"] });
+      qc.invalidateQueries({ queryKey: ["devocional"] });
+      qc.invalidateQueries({ queryKey: ["devocionais"] });
+    } catch (e: any) {
+      toast.error(e.message ?? "Falha ao salvar");
+    } finally {
+      setSalvando(false);
+    }
   };
 
-  const pct = progresso ? Math.round((progresso.feitos / Math.max(progresso.total, 1)) * 100) : 0;
-
   return (
-    <div className="mt-6 space-y-8">
-      <div className="bg-card p-6 rounded-2xl border border-border/50 shadow-soft">
-        <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
-          <div>
-            <h2 className="font-serif text-2xl mb-1">Importação automática — Radiant Religion 2026</h2>
-            <p className="text-sm text-muted-foreground">
-              Os 365 devocionais do livro são traduzidos para o português e ganham uma oração pastoral adventista
-              gerada por IA. O processo roda sozinho em segundo plano (a cada 2 minutos).
-            </p>
-          </div>
-          <Button
-            onClick={trigger}
-            disabled={running || (progresso?.pendentes ?? 0) === 0}
-            className="rounded-full bg-primary hover:bg-primary-glow"
-          >
-            <RefreshCw className={`mr-2 h-4 w-4 ${running ? "animate-spin" : ""}`} />
-            Processar lote agora (15)
-          </Button>
+    <div className="mt-6 space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="font-serif text-2xl">Devocionais da semana</h2>
+          <p className="text-sm text-muted-foreground">
+            Preencha os 7 dias com os textos do livro. Salve como rascunho, revise, e publique tudo no fim.
+          </p>
         </div>
-
-        {progresso && (
-          <>
-            <div className="flex flex-wrap gap-6 text-sm mb-4">
-              <div><span className="text-muted-foreground">Traduzidos:</span> <strong className="text-coral-deep">{progresso.feitos}</strong>/{progresso.total}</div>
-              <div><span className="text-muted-foreground">Pendentes:</span> <strong>{progresso.pendentes}</strong></div>
-              {progresso.erros > 0 && (
-                <div><span className="text-muted-foreground">Com erro (vão tentar de novo):</span> <strong className="text-destructive">{progresso.erros}</strong></div>
-              )}
-            </div>
-            <div className="h-3 bg-secondary rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-sunrise transition-all duration-500"
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">{pct}% concluído</p>
-          </>
-        )}
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" className="rounded-full" onClick={() => navegar(-7)}>← Anterior</Button>
+          <Input
+            type="date"
+            className="w-44"
+            value={inicio}
+            onChange={(e) => {
+              const d = new Date(e.target.value + "T00:00");
+              recarregar(isoDate(segundaDaSemana(d)));
+            }}
+          />
+          <Button size="sm" variant="outline" className="rounded-full" onClick={() => navegar(7)}>Próxima →</Button>
+        </div>
       </div>
 
-      <div>
-        <h3 className="font-serif text-xl mb-3">Por mês</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          Devocionais entram como <strong>rascunho</strong> (não publicados). Revise e publique mês a mês quando estiver pronto.
-        </p>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {progresso?.porMes.map((m) => {
-            const pub = porMesPub?.find((p) => p.mes === m.mes);
-            const traduzidoCompleto = m.total > 0 && m.ok === m.total;
-            const publicadoCompleto = pub && pub.total > 0 && pub.publicados === pub.total;
-            return (
-              <div key={m.mes} className="bg-card p-4 rounded-2xl border border-border/50">
-                <div className="flex justify-between items-baseline mb-2">
-                  <p className="font-serif text-lg">{m.nome}</p>
-                  <p className="text-xs text-muted-foreground">{m.ok}/{m.total} traduzidos</p>
-                </div>
-                <div className="h-1.5 bg-secondary rounded-full overflow-hidden mb-3">
-                  <div className="h-full bg-coral" style={{ width: `${(m.ok / Math.max(m.total, 1)) * 100}%` }} />
-                </div>
-                <p className="text-xs text-muted-foreground mb-3">
-                  Publicados: <strong>{pub?.publicados ?? 0}</strong>/{pub?.total ?? 0}
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="rounded-full flex-1"
-                    disabled={!traduzidoCompleto || publicadoCompleto}
-                    onClick={() => togglePublicarMes(m.mes, true)}
-                  >
-                    <Eye className="mr-1 h-3 w-3" /> Publicar
-                  </Button>
-                  {publicadoCompleto && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="rounded-full"
-                      onClick={() => togglePublicarMes(m.mes, false)}
-                    >
-                      <EyeOff className="h-3 w-3" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        {itens.map((it, i) => (
+          <div key={it.data} className="bg-card p-5 rounded-2xl border border-border/50 shadow-soft space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase tracking-widest text-coral-deep font-semibold">
+                {fmtBR(it.data)}
+              </p>
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                {it.id ? (
+                  it.publicado ? (
+                    <><CircleCheck className="h-3 w-3 text-primary" /> publicado</>
+                  ) : (
+                    <><CircleDashed className="h-3 w-3" /> rascunho</>
+                  )
+                ) : (
+                  <><CircleDashed className="h-3 w-3 opacity-50" /> vazio</>
+                )}
+              </span>
+            </div>
+            <Input
+              placeholder="Título"
+              value={it.titulo}
+              onChange={(e) => update(i, { titulo: e.target.value })}
+            />
+            <Textarea
+              rows={2}
+              placeholder="Versículo"
+              value={it.versiculo}
+              onChange={(e) => update(i, { versiculo: e.target.value })}
+            />
+            <Input
+              placeholder="Referência (ex.: Salmos 23.1)"
+              value={it.referencia}
+              onChange={(e) => update(i, { referencia: e.target.value })}
+            />
+            <Textarea
+              rows={6}
+              placeholder="Meditação"
+              value={it.meditacao}
+              onChange={(e) => update(i, { meditacao: e.target.value })}
+            />
+            <Textarea
+              rows={2}
+              placeholder="Oração (opcional)"
+              value={it.oracao}
+              onChange={(e) => update(i, { oracao: e.target.value })}
+            />
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap gap-3 pt-4 border-t border-border">
+        <Button
+          onClick={() => salvarTudo(false)}
+          disabled={salvando}
+          variant="outline"
+          className="rounded-full"
+        >
+          Salvar como rascunho
+        </Button>
+        <Button
+          onClick={() => salvarTudo(true)}
+          disabled={salvando}
+          className="rounded-full bg-primary hover:bg-primary-glow"
+        >
+          Salvar e publicar semana
+        </Button>
       </div>
     </div>
   );
 };
 
-/* ---------------- Devocionais ---------------- */
-const AdminDevocionais = () => {
+/* ---------- Modo Avulso (formulário individual) ---------- */
+const AdminAvulso = () => {
   const qc = useQueryClient();
   const today = new Date().toISOString().slice(0, 10);
   const [form, setForm] = useState({
