@@ -109,10 +109,6 @@ const Oracao = () => {
               <p className="text-xs text-muted-foreground mt-1">{form.pedido.length}/2000</p>
             </div>
 
-            <Button type="submit" disabled={loading} size="lg" className="w-full rounded-full bg-primary hover:bg-primary-glow shadow-deep h-12">
-              <Heart className="mr-2 h-4 w-4" />
-              {loading ? "Enviando…" : "Enviar pedido de oração"}
-            </Button>
             <div className="flex items-start gap-3 pt-1">
               <Checkbox
                 id="interesse_contato"
@@ -123,6 +119,10 @@ const Oracao = () => {
                 Gostaria de receber contato de um líder cristão para conversar mais sobre a fé
               </Label>
             </div>
+            <Button type="submit" disabled={loading} size="lg" className="w-full rounded-full bg-primary hover:bg-primary-glow shadow-deep h-12">
+              <Heart className="mr-2 h-4 w-4" />
+              {loading ? "Enviando…" : "Enviar pedido de oração"}
+            </Button>
           </form>
         )}
       </section>

@@ -17,12 +17,13 @@ const schema = z.object({
   contato: z.string().trim().max(200).optional().or(z.literal("")),
   depoimento: z.string().trim().min(20, "Conte com pelo menos 20 caracteres.").max(3000),
   consentimento: z.literal(true, { errorMap: () => ({ message: "É preciso autorizar a publicação." }) }),
+  interesse_contato: z.boolean(),
 });
 
 const Compartilhar = () => {
   const nav = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({ nome: "", cidade: "", contato: "", depoimento: "", consentimento: false });
+  const [form, setForm] = useState({ nome: "", cidade: "", contato: "", depoimento: "", consentimento: false, interesse_contato: false });
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,6 +40,7 @@ const Compartilhar = () => {
       depoimento: parsed.data.depoimento,
       consentimento: parsed.data.consentimento,
       status: "pendente",
+      interesse_contato: parsed.data.interesse_contato,
     });
     setLoading(false);
     if (error) {
@@ -98,6 +100,16 @@ const Compartilhar = () => {
             />
             <Label htmlFor="consent" className="text-sm font-normal leading-relaxed cursor-pointer">
               Autorizo a publicação do meu relato no site Fonte de Alegria, com meu nome e cidade (se informados).
+            </Label>
+          </div>
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="interesse_contato"
+              checked={form.interesse_contato}
+              onCheckedChange={(v) => setForm({ ...form, interesse_contato: !!v })}
+            />
+            <Label htmlFor="interesse_contato" className="text-sm font-normal leading-relaxed cursor-pointer">
+              Gostaria de receber contato de um líder cristão para conversar mais sobre a fé
             </Label>
           </div>
           <Button type="submit" disabled={loading} size="lg" className="w-full rounded-full bg-coral hover:bg-coral-deep text-white shadow-warm h-12">
