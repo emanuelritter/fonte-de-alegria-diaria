@@ -736,3 +736,119 @@ const AdminLeads = () => {
     </div>
   );
 };
+
+/* ---------------- Usuários & Admins ---------------- */
+type AppUser = { user_id: string; email: string; created_at: string; is_admin: boolean };
+
+const AdminUsuarios = ({ currentUserId }: { currentUserId: string }) => {
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin", "users"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("admin_list_users");
+      if (error) throw error;
+      return (data ?? []) as AppUser[];
+    },
+  });
+
+  const promote = async (u: AppUser) => {
+    const { error } = await supabase.from("user_roles").insert({ user_id: u.user_id, role: "admin" });
+    if (error) { toast.error(error.message); return; }
+    toast.success(`${u.email} agora é admin.`);
+    qc.invalidateQueries({ queryKey: ["admin", "users"] });
+  };
+
+  const demote = async (u: AppUser) => {
+    if (!confirm(`Remover permissão de admin de ${u.email}?`)) return;
+    const { error } = await supabase
+      .from("user_roles")
+      .delete()
+      .eq("user_id", u.user_id)
+      .eq("role", "admin");
+    if (error) { toast.error(error.message); return; }
+    toast.success(`${u.email} não é mais admin.`);
+    qc.invalidateQueries({ queryKey: ["admin", "users"] });
+  };
+
+  if (isLoading) {
+    return <div className="mt-6 text-muted-foreground">Carregando usuários…</div>;
+  }
+
+  const users = data ?? [];
+  const admins = users.filter((u) => u.is_admin);
+  const pendentes = users.filter((u) => !u.is_admin);
+
+  return (
+    <div className="mt-6 space-y-6">
+      <div>
+        <h2 className="font-serif text-2xl">Usuários & Administradores</h2>
+        <p className="text-sm text-muted-foreground">
+          Promova novos cadastros a administrador ou revogue permissões. Você não pode remover seu próprio acesso.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-card p-4 rounded-2xl border border-border/50 text-center">
+          <Users className="h-5 w-5 mx-auto text-coral-deep mb-1" />
+          <p className="text-2xl font-serif">{users.length}</p>
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">Total</p>
+        </div>
+        <div className="bg-card p-4 rounded-2xl border border-border/50 text-center">
+          <ShieldCheck className="h-5 w-5 mx-auto text-primary mb-1" />
+          <p className="text-2xl font-serif">{admins.length}</p>
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">Admins</p>
+        </div>
+        <div className="bg-card p-4 rounded-2xl border border-border/50 text-center">
+          <Shield className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
+          <p className="text-2xl font-serif">{pendentes.length}</p>
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">Usuários</p>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {users.map((u) => {
+          const isSelf = u.user_id === currentUserId;
+          return (
+            <article
+              key={u.user_id}
+              className="bg-card p-4 rounded-2xl border border-border/50 flex flex-wrap items-center justify-between gap-3"
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-semibold truncate">{u.email}</p>
+                  {u.is_admin ? (
+                    <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-primary/15 text-primary font-semibold">
+                      <ShieldCheck className="h-3 w-3" /> Admin
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground font-semibold">
+                      <Shield className="h-3 w-3" /> Usuário
+                    </span>
+                  )}
+                  {isSelf && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-coral/15 text-coral-deep font-semibold">você</span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Cadastro: {new Date(u.created_at).toLocaleString("pt-BR")}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                {!u.is_admin && (
+                  <Button size="sm" className="rounded-full bg-primary hover:bg-primary-glow" onClick={() => promote(u)}>
+                    <ShieldCheck className="h-4 w-4 mr-1" /> Tornar admin
+                  </Button>
+                )}
+                {u.is_admin && !isSelf && (
+                  <Button size="sm" variant="outline" className="rounded-full" onClick={() => demote(u)}>
+                    <ShieldOff className="h-4 w-4 mr-1" /> Remover admin
+                  </Button>
+                )}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
