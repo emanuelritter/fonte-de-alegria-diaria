@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { LogOut, ShieldOff, Plus, Trash2, Check, X, Star } from "lucide-react";
+import { LogOut, ShieldOff, Plus, Trash2, Check, X, Star, Send, MessageSquare, BookHeart } from "lucide-react";
 import { CalendarDays, FileText, CircleCheck, CircleDashed } from "lucide-react";
 
 const Admin = () => {
@@ -58,11 +58,13 @@ const Admin = () => {
             <TabsTrigger value="devocionais" className="rounded-full">Devocionais</TabsTrigger>
             <TabsTrigger value="historias" className="rounded-full">Histórias</TabsTrigger>
             <TabsTrigger value="oracao" className="rounded-full">Oração</TabsTrigger>
+            <TabsTrigger value="leads" className="rounded-full">Leads Missionários</TabsTrigger>
             <TabsTrigger value="leitura" className="rounded-full">Plano</TabsTrigger>
           </TabsList>
           <TabsContent value="devocionais"><AdminDevocionais /></TabsContent>
           <TabsContent value="historias"><AdminHistorias /></TabsContent>
           <TabsContent value="oracao"><AdminOracao /></TabsContent>
+          <TabsContent value="leads"><AdminLeads /></TabsContent>
           <TabsContent value="leitura"><AdminLeitura /></TabsContent>
         </Tabs>
       </section>
@@ -584,3 +586,151 @@ const AdminLeitura = () => {
 };
 
 export default Admin;
+
+/* ---------------- Leads Missionários ---------------- */
+type Lead = {
+  id: string;
+  source: "Pedido de Oração" | "História";
+  table: "pedidos_oracao" | "historias";
+  nome: string | null;
+  contato: string | null;
+  anonimo: boolean;
+  created_at: string;
+  encaminhado_em: string | null;
+  conteudo: string;
+};
+
+const AdminLeads = () => {
+  const qc = useQueryClient();
+
+  const { data: leads = [], isLoading } = useQuery<Lead[]>({
+    queryKey: ["admin", "leads"],
+    queryFn: async () => {
+      const [oracao, historias] = await Promise.all([
+        supabase
+          .from("pedidos_oracao")
+          .select("id, nome, contato, anonimo, created_at, encaminhado_em, pedido, interesse_contato")
+          .eq("interesse_contato", true)
+          .order("created_at", { ascending: false }),
+        supabase.rpc("admin_list_historias"),
+      ]);
+      if (oracao.error) throw oracao.error;
+      if (historias.error) throw historias.error;
+
+      const oracaoLeads: Lead[] = (oracao.data ?? []).map((p: any) => ({
+        id: p.id,
+        source: "Pedido de Oração",
+        table: "pedidos_oracao",
+        nome: p.anonimo ? null : p.nome,
+        contato: p.anonimo ? null : p.contato,
+        anonimo: !!p.anonimo,
+        created_at: p.created_at,
+        encaminhado_em: p.encaminhado_em,
+        conteudo: p.pedido,
+      }));
+
+      const historiasLeads: Lead[] = (historias.data ?? [])
+        .filter((h: any) => h.interesse_contato === true)
+        .map((h: any) => ({
+          id: h.id,
+          source: "História",
+          table: "historias",
+          nome: h.nome,
+          contato: h.contato,
+          anonimo: false,
+          created_at: h.created_at,
+          encaminhado_em: h.encaminhado_em,
+          conteudo: h.depoimento,
+        }));
+
+      return [...oracaoLeads, ...historiasLeads].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      );
+    },
+  });
+
+  const total = leads.length;
+  const pendentes = leads.filter((l) => !l.encaminhado_em).length;
+  const encaminhados = total - pendentes;
+
+  const encaminhar = async (lead: Lead) => {
+    const { error } = await supabase
+      .from(lead.table)
+      .update({ encaminhado_em: new Date().toISOString() })
+      .eq("id", lead.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Lead marcado como encaminhado.");
+    qc.invalidateQueries({ queryKey: ["admin", "leads"] });
+  };
+
+  return (
+    <div className="mt-6 space-y-6">
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-card p-5 rounded-2xl border border-border/50">
+          <p className="text-xs uppercase tracking-widest text-muted-foreground font-semibold">Total de leads</p>
+          <p className="font-serif text-3xl mt-1">{total}</p>
+        </div>
+        <div className="bg-card p-5 rounded-2xl border border-coral/30 shadow-soft">
+          <p className="text-xs uppercase tracking-widest text-coral-deep font-semibold">Pendentes</p>
+          <p className="font-serif text-3xl mt-1">{pendentes}</p>
+        </div>
+        <div className="bg-card p-5 rounded-2xl border border-border/50">
+          <p className="text-xs uppercase tracking-widest text-primary font-semibold">Encaminhados</p>
+          <p className="font-serif text-3xl mt-1">{encaminhados}</p>
+        </div>
+      </div>
+
+      {isLoading && <p className="text-muted-foreground">Carregando…</p>}
+      {!isLoading && leads.length === 0 && (
+        <p className="text-muted-foreground">Nenhum lead missionário ainda.</p>
+      )}
+
+      <div className="space-y-3">
+        {leads.map((lead) => {
+          const isEnc = !!lead.encaminhado_em;
+          const SourceIcon = lead.source === "Pedido de Oração" ? MessageSquare : BookHeart;
+          return (
+            <article
+              key={`${lead.table}-${lead.id}`}
+              className={`p-5 rounded-2xl border ${
+                isEnc ? "bg-secondary/40 border-border" : "bg-card border-coral/30 shadow-soft"
+              }`}
+            >
+              <div className="flex flex-wrap justify-between gap-3 mb-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <p className="font-serif text-lg">{lead.anonimo ? "Anônimo" : (lead.nome || "Sem nome")}</p>
+                    <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-secondary text-foreground/80">
+                      <SourceIcon className="h-3 w-3" /> {lead.source}
+                    </span>
+                    {isEnc ? (
+                      <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-primary/15 text-primary font-semibold">
+                        <CircleCheck className="h-3 w-3" /> Encaminhado · {new Date(lead.encaminhado_em!).toLocaleDateString("pt-BR")}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-coral/15 text-coral-deep font-semibold">
+                        <CircleDashed className="h-3 w-3" /> Pendente
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Contato: <strong>{lead.contato || "—"}</strong> · {new Date(lead.created_at).toLocaleString("pt-BR")}
+                  </p>
+                </div>
+                {!isEnc && (
+                  <Button size="sm" className="rounded-full bg-primary hover:bg-primary-glow" onClick={() => encaminhar(lead)}>
+                    <Send className="h-4 w-4 mr-1" /> Encaminhar
+                  </Button>
+                )}
+              </div>
+              <p className="text-sm text-foreground/85 whitespace-pre-line line-clamp-4">{lead.conteudo}</p>
+            </article>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
