@@ -4,6 +4,7 @@ import { Quote, Plus } from "lucide-react";
 import { PageShell } from "@/components/Layout/PageShell";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { SEO } from "@/components/SEO";
 
 type Historia = { id: string; nome: string; cidade: string | null; depoimento: string };
 
@@ -24,6 +25,10 @@ const Historias = () => {
 
   return (
     <PageShell>
+      <SEO
+        title="Histórias de fé"
+        description="Testemunhos reais de pessoas que encontraram alegria e esperança em Deus."
+      />
       <section className="bg-gradient-warm text-white py-20">
         <div className="container max-w-3xl">
           <p className="uppercase tracking-[0.3em] text-xs font-semibold text-white/85 mb-3">

@@ -6,6 +6,7 @@ import { CtaFunil } from "@/components/CtaFunil";
 import { useDevocionalHoje, useDevocionalPorData, useArquivoDevocionais } from "@/hooks/useDevocional";
 import { toast } from "sonner";
 import { CompartilharInstagram } from "@/components/CompartilharInstagram";
+import { SEO } from "@/components/SEO";
 
 const formatDate = (s: string) =>
   new Date(s + "T00:00").toLocaleDateString("pt-BR", {
@@ -36,6 +37,16 @@ const Devocional = () => {
 
   return (
     <PageShell>
+      <SEO
+        title={dev?.titulo ?? "Devocional do dia"}
+        description={
+          dev?.meditacao
+            ? dev.meditacao.replace(/<[^>]+>/g, "").slice(0, 155) + "..."
+            : "Leitura devocional diária."
+        }
+        type="article"
+        url={dev?.data ? `https://fontedealegria.com.br/devocional/${dev.data}` : undefined}
+      />
       <section className="bg-gradient-sunrise text-white pb-20">
         <div className="container pt-12">
           <Link to="/devocional" className="inline-flex items-center gap-1 text-white/80 hover:text-white text-sm mb-6">

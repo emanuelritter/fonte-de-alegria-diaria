@@ -1,7 +1,12 @@
 import { PageShell } from "@/components/Layout/PageShell";
+import { SEO } from "@/components/SEO";
 
 const Sobre = () => (
   <PageShell>
+    <SEO
+      title="Sobre o projeto"
+      description="Fonte de Alegria é um projeto devocional cristão adventista criado para levar esperança diária através da Palavra."
+    />
     <section className="container py-20 max-w-3xl">
       <p className="uppercase tracking-[0.3em] text-xs font-semibold text-coral-deep mb-3">Sobre o projeto</p>
       <h1 className="font-serif text-5xl md:text-6xl leading-tight mb-8">
