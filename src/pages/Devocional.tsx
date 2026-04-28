@@ -87,11 +87,15 @@ const Devocional = () => {
 
             <div className="mt-10 flex flex-wrap items-center gap-3 pt-6 border-t border-border">
               <CompartilharInstagram
+                id={dev.id}
+                data={dev.data}
                 titulo={dev.titulo}
                 versiculo={dev.versiculo}
                 referencia={dev.referencia}
                 meditacao={dev.meditacao}
-                oracao={dev.oracao}
+                hookCacheado={dev.hook_stories}
+                carrosselCacheado={dev.carrossel_textos as any}
+                legendaCacheada={dev.carrossel_legenda}
               />
               <Button onClick={share} variant="outline" className="rounded-full">
                 <Share2 className="mr-2 h-4 w-4" /> Compartilhar

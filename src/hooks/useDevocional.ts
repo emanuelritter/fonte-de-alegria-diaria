@@ -12,6 +12,9 @@ export type Devocional = {
   post_url: string | null;
   cta_nivel: number;
   publicado: boolean;
+  hook_stories?: string | null;
+  carrossel_textos?: any | null;
+  carrossel_legenda?: string | null;
 };
 
 const today = () => new Date().toISOString().slice(0, 10);

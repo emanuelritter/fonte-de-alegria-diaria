@@ -16,9 +16,12 @@ export type Database = {
     Tables: {
       devocionais: {
         Row: {
+          carrossel_legenda: string | null
+          carrossel_textos: Json | null
           created_at: string
           cta_nivel: number
           data: string
+          hook_stories: string | null
           id: string
           meditacao: string
           oracao: string | null
@@ -30,9 +33,12 @@ export type Database = {
           versiculo: string
         }
         Insert: {
+          carrossel_legenda?: string | null
+          carrossel_textos?: Json | null
           created_at?: string
           cta_nivel?: number
           data: string
+          hook_stories?: string | null
           id?: string
           meditacao: string
           oracao?: string | null
@@ -44,9 +50,12 @@ export type Database = {
           versiculo: string
         }
         Update: {
+          carrossel_legenda?: string | null
+          carrossel_textos?: Json | null
           created_at?: string
           cta_nivel?: number
           data?: string
+          hook_stories?: string | null
           id?: string
           meditacao?: string
           oracao?: string | null
