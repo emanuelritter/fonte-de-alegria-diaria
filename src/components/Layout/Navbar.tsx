@@ -1,7 +1,9 @@
-import { Link, NavLink, useLocation } from "react-router-dom";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { Menu, X, Sun } from "lucide-react";
+import { Menu, X, Sun, LogIn, Shield, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 const links = [
   { to: "/devocional", label: "Devocional" },
@@ -16,6 +18,68 @@ export const Navbar = () => {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, isAdmin, loading } = useAuth();
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    navigate("/");
+  };
+
+  const AuthAction = ({ variant }: { variant: "desktop" | "mobile" }) => {
+    if (loading) return null;
+
+    const desktopBase =
+      "ml-2 inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-full transition-colors border border-border";
+    const mobileBase =
+      "px-4 py-3 rounded-xl text-base font-medium transition-colors inline-flex items-center gap-2";
+
+    if (!user) {
+      return (
+        <Link
+          to="/auth"
+          className={cn(
+            variant === "desktop"
+              ? `${desktopBase} text-foreground/80 hover:text-primary hover:bg-secondary`
+              : `${mobileBase} text-foreground/80 hover:bg-secondary`
+          )}
+        >
+          <LogIn className="h-4 w-4" />
+          Entrar
+        </Link>
+      );
+    }
+
+    if (isAdmin) {
+      return (
+        <Link
+          to="/admin"
+          className={cn(
+            variant === "desktop"
+              ? `${desktopBase} text-primary bg-secondary hover:bg-secondary/80`
+              : `${mobileBase} text-primary bg-secondary`
+          )}
+        >
+          <Shield className="h-4 w-4" />
+          Admin
+        </Link>
+      );
+    }
+
+    return (
+      <button
+        onClick={handleSignOut}
+        className={cn(
+          variant === "desktop"
+            ? `${desktopBase} text-foreground/80 hover:text-primary hover:bg-secondary`
+            : `${mobileBase} text-foreground/80 hover:bg-secondary text-left`
+        )}
+      >
+        <LogOut className="h-4 w-4" />
+        Sair
+      </button>
+    );
+  };
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -63,6 +127,7 @@ export const Navbar = () => {
               {l.label}
             </NavLink>
           ))}
+          <AuthAction variant="desktop" />
         </nav>
 
         <button
@@ -93,6 +158,8 @@ export const Navbar = () => {
                 {l.label}
               </NavLink>
             ))}
+            <div className="my-2 border-t border-border" />
+            <AuthAction variant="mobile" />
           </div>
         </div>
       )}
