@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { BookOpen, Tv, Church, ArrowRight } from "lucide-react";
 
 type Cta = {
@@ -41,9 +42,39 @@ const toneClasses: Record<Cta["tone"], string> = {
   primary: "bg-gradient-deep text-white",
 };
 
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 export const CtaFunil = ({ nivel }: { nivel?: number }) => {
-  const ordered = nivel ? [...ctas].sort((a, b) => {
-    const order = nivel === 1 ? [0,1,2] : nivel === 2 ? [1,0,2] : [2,1,0];
+  const [autoNivel, setAutoNivel] = useState<number>(2);
+
+  useEffect(() => {
+    if (nivel) return; // prop wins
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const dist = haversineKm(pos.coords.latitude, pos.coords.longitude, -23.0896, -47.2183);
+        setAutoNivel(dist <= 80 ? 1 : 2);
+      },
+      () => {
+        // denied/unavailable: keep default 2, no UI error
+      },
+      { timeout: 8000, maximumAge: 600000 }
+    );
+  }, [nivel]);
+
+  const effectiveNivel = nivel ?? autoNivel;
+  const ordered = effectiveNivel ? [...ctas].sort((a, b) => {
+    const order = effectiveNivel === 1 ? [0,1,2] : effectiveNivel === 2 ? [1,0,2] : [2,1,0];
     return order.indexOf(ctas.indexOf(a)) - order.indexOf(ctas.indexOf(b));
   }) : ctas;
 

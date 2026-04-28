@@ -6,12 +6,17 @@ import { PageShell } from "@/components/Layout/PageShell";
 import { CtaFunil } from "@/components/CtaFunil";
 import { HistoriasCarrossel } from "@/components/HistoriasCarrossel";
 import { useDevocionalHoje } from "@/hooks/useDevocional";
+import { SEO } from "@/components/SEO";
 
 const Index = () => {
   const { data: devocional } = useDevocionalHoje();
 
   return (
     <PageShell>
+      <SEO
+        title="Devocional diário cristão"
+        description="Leituras diárias para nutrir sua fé, compartilhar histórias e encontrar alegria em Deus todos os dias."
+      />
       {/* HERO */}
       <section className="relative min-h-[88vh] flex items-end overflow-hidden">
         <img
@@ -44,7 +49,7 @@ const Index = () => {
                 </Link>
               </Button>
               <Button asChild size="lg" variant="outline" className="rounded-full bg-white/10 backdrop-blur border-white/40 text-white hover:bg-white hover:text-primary h-12 px-7">
-                <a href="https://instagram.com" target="_blank" rel="noreferrer">
+                <a href="https://www.instagram.com/fontedealegriadiaria/" target="_blank" rel="noreferrer">
                   <Instagram className="mr-2 h-4 w-4" /> Siga nas redes
                 </a>
               </Button>

@@ -9,18 +9,20 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Heart, ShieldCheck } from "lucide-react";
+import { SEO } from "@/components/SEO";
 
 const schema = z.object({
   nome: z.string().trim().max(100).optional().or(z.literal("")),
   contato: z.string().trim().max(200).optional().or(z.literal("")),
   pedido: z.string().trim().min(5, "Compartilhe um pouco mais sobre o pedido.").max(2000),
   anonimo: z.boolean(),
+  interesse_contato: z.boolean(),
 });
 
 const Oracao = () => {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
-  const [form, setForm] = useState({ nome: "", contato: "", pedido: "", anonimo: false });
+  const [form, setForm] = useState({ nome: "", contato: "", pedido: "", anonimo: false, interesse_contato: false });
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,15 +34,20 @@ const Oracao = () => {
       contato: parsed.data.anonimo ? null : (parsed.data.contato || null),
       pedido: parsed.data.pedido,
       anonimo: parsed.data.anonimo,
+      interesse_contato: parsed.data.interesse_contato,
     });
     setLoading(false);
     if (error) { toast.error("Não foi possível enviar agora. Tente novamente."); return; }
     setDone(true);
-    setForm({ nome: "", contato: "", pedido: "", anonimo: false });
+    setForm({ nome: "", contato: "", pedido: "", anonimo: false, interesse_contato: false });
   };
 
   return (
     <PageShell>
+      <SEO
+        title="Pedido de oração"
+        description="Envie seu pedido de oração. Acreditamos no poder da oração intercessora."
+      />
       <section className="bg-gradient-deep text-white py-20">
         <div className="container max-w-3xl">
           <p className="uppercase tracking-[0.3em] text-xs font-semibold text-white/70 mb-3">Pedidos de oração</p>
@@ -102,6 +109,16 @@ const Oracao = () => {
               <p className="text-xs text-muted-foreground mt-1">{form.pedido.length}/2000</p>
             </div>
 
+            <div className="flex items-start gap-3 pt-1">
+              <Checkbox
+                id="interesse_contato"
+                checked={form.interesse_contato}
+                onCheckedChange={(v) => setForm({ ...form, interesse_contato: !!v })}
+              />
+              <Label htmlFor="interesse_contato" className="text-sm font-normal leading-relaxed cursor-pointer">
+                Gostaria de receber contato de um líder cristão para conversar mais sobre a fé
+              </Label>
+            </div>
             <Button type="submit" disabled={loading} size="lg" className="w-full rounded-full bg-primary hover:bg-primary-glow shadow-deep h-12">
               <Heart className="mr-2 h-4 w-4" />
               {loading ? "Enviando…" : "Enviar pedido de oração"}

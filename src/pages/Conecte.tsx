@@ -1,9 +1,15 @@
 import { PageShell } from "@/components/Layout/PageShell";
 import { Button } from "@/components/ui/button";
 import { Church, Tv, Users, MapPin, Clock, ExternalLink } from "lucide-react";
+import { Link } from "react-router-dom";
+import { SEO } from "@/components/SEO";
 
 const Conecte = () => (
   <PageShell>
+    <SEO
+      title="Conecte-se"
+      description="Conheça a IASD Central de Indaiatuba ou estude com a Rede Novo Tempo. Dê o próximo passo na sua fé."
+    />
     <section className="bg-gradient-cover text-white py-24">
       <div className="container max-w-3xl text-center">
         <p className="uppercase tracking-[0.3em] text-xs font-semibold text-white/85 mb-3">Conecte-se</p>
@@ -21,21 +27,21 @@ const Conecte = () => (
         </div>
         <h2 className="font-serif text-2xl mb-2">IASD Central de Indaiatuba</h2>
         <p className="text-muted-foreground text-sm mb-5">
-          Igreja Adventista do Sétimo Dia · uma comunidade que te espera de braços abertos.
+          Uma comunidade de fé no coração de Indaiatuba, SP. Você é bem-vindo como é.
         </p>
         <ul className="space-y-2 text-sm mb-6">
           <li className="flex items-start gap-2">
             <MapPin className="h-4 w-4 text-coral mt-0.5 flex-shrink-0" />
-            <span>Centro de Indaiatuba, SP</span>
+            <span>Rua XV de Novembro, 1080 — Centro, Indaiatuba SP</span>
           </li>
           <li className="flex items-start gap-2">
             <Clock className="h-4 w-4 text-coral mt-0.5 flex-shrink-0" />
-            <span>Sábado: Escola Sabatina 9h · Culto 10h30</span>
+            <span>Sábado 9h30 (Escola Sabatina) e 11h (Culto Divino)</span>
           </li>
         </ul>
         <Button asChild variant="outline" className="rounded-full w-full">
           <a href="https://www.instagram.com/iasdcentralindaiatuba/" target="_blank" rel="noreferrer">
-            Visite nosso Instagram <ExternalLink className="ml-2 h-3 w-3" />
+            Ver no Instagram <ExternalLink className="ml-2 h-3 w-3" />
           </a>
         </Button>
       </article>
@@ -45,14 +51,14 @@ const Conecte = () => (
         <div className="h-12 w-12 rounded-full bg-gradient-warm text-white flex items-center justify-center mb-5">
           <Tv className="h-6 w-6" />
         </div>
-        <h2 className="font-serif text-2xl mb-2">TV Novo Tempo</h2>
+        <h2 className="font-serif text-2xl mb-2">Rede Novo Tempo</h2>
         <p className="text-muted-foreground text-sm mb-5">
-          Programação 24h, estudos bíblicos online, podcasts e devocionais — uma rede inteira para sua jornada de fé.
+          Estudos bíblicos online e programação cristã para todo o Brasil.
         </p>
         <ul className="space-y-2 text-sm mb-6">
-          <li>• Estudos bíblicos online gratuitos</li>
-          <li>• Programas para família e jovens</li>
-          <li>• App e canal ao vivo</li>
+          <li>• Estudos bíblicos gratuitos online</li>
+          <li>• Programação 24h com conteúdo cristão</li>
+          <li>• Materiais para toda a família</li>
         </ul>
         <Button asChild className="rounded-full w-full bg-coral hover:bg-coral-deep text-white">
           <a href="https://www.novotempo.com" target="_blank" rel="noreferrer">
@@ -66,15 +72,17 @@ const Conecte = () => (
         <div className="h-12 w-12 rounded-full bg-sand text-foreground flex items-center justify-center mb-5">
           <Users className="h-6 w-6" />
         </div>
-        <h2 className="font-serif text-2xl mb-2">Pequenos grupos</h2>
+        <h2 className="font-serif text-2xl mb-2">Pequenos Grupos</h2>
         <p className="text-muted-foreground text-sm mb-5">
-          Encontros semanais nas casas para orar, estudar a Bíblia e cultivar amizades cristãs.
-          Um lugar onde você é conhecido e amado.
+          Grupos de estudo e comunhão para aprofundar a fé em ambiente íntimo.
         </p>
+        <ul className="space-y-2 text-sm mb-6">
+          <li>• Encontros semanais em Indaiatuba</li>
+          <li>• Grupos para diferentes faixas etárias</li>
+          <li>• Contato próximo e oração em grupo</li>
+        </ul>
         <Button asChild variant="outline" className="rounded-full w-full">
-          <a href="https://wa.me/" target="_blank" rel="noreferrer">
-            Quero participar <ExternalLink className="ml-2 h-3 w-3" />
-          </a>
+          <Link to="/oracao">Quero participar</Link>
         </Button>
       </article>
     </section>

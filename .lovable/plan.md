@@ -1,85 +1,112 @@
-# Melhorias nas artes de Stories, Carrossel e domínio
+## Plano de melhorias funcionais e estratégicas
 
-## 1. Story — fim das sobreposições + arte mais marcante
+Aplico 9 correções pontuais — sem mexer no design visual, sem criar gerador de carrossel.
 
-**Problema atual:** o título, card de versículo e hook usam posições parcialmente fixas (`titleY + 200`, `H - SAFE_BOTTOM - 240`). Em dias com versículo longo (1 Pedro 4:12,13), o card cresce e invade o hook.
+### FIX 1 — Links sociais
 
-**Solução — layout por blocos empilhados com altura medida:**
-1. Reescrever `renderStoryPNG` em `src/lib/storyTemplate.ts` usando um layout sequencial: cada bloco (etiqueta de data → título → card de versículo → hook → rodapé) é medido primeiro e empilhado com gaps mínimos garantidos.
-2. Calcular o espaço disponível para o card do versículo dinamicamente (`H - rodapé - hook - título - paddings`), reduzindo automaticamente a fonte do versículo se ele ainda exceder (degraus: 38 → 34 → 30 → 26px).
-3. Reduzir a fonte do hook de 38 para 34px e limitar a 2 linhas (truncar com "…" se passar) para manter área protegida estável.
-4. Garantir gap mínimo de 60px entre o final do card e o início do hook; se faltar espaço, encolher título e versículo em mais um degrau.
+Substituir em `Navbar.tsx`, `Footer.tsx`, `Index.tsx`, `Conecte.tsx` (e qualquer outro):
 
-**Arte mais marcante (menos gradiente, mais identidade):**
-1. Trocar o gradiente vertical contínuo por **dois blocos de cor sólidos** com diagonal: topo coral vibrante (`#F1684E` / `#D5482E`) ocupando ~65%, base teal profundo (`#0B3640` / `#0F4451`) com uma diagonal suave separando — visual mais "pôster".
-2. Adicionar **formas geométricas decorativas** (anéis concêntricos finos em dourado `#F4C04D` no canto superior direito, e um arco fino na base) para reforçar o estilo jovem.
-3. Embutir o **sol PNG da identidade** (`src/assets/sun-icon.png`) carregado via `Image` no canvas e desenhado:
-   - Pequeno (80px) como selo no topo, ao lado da etiqueta "DEVOCIONAL DO DIA".
-   - Grande (380px) atrás do card de versículo, com `globalAlpha 0.18`, criando textura de marca em vez do gradiente radial atual.
-4. Manter o card do versículo translúcido, mas com borda dourada fina (em vez de branca) para destacar.
-5. Rodapé com bloco teal sólido (faixa inferior) onde aparecem `fontedealegria.com.br` + handle, mais legível.
+- `https://instagram.com` → `https://www.instagram.com/fontedealegriadiaria/`
+- `https://youtube.com` → `https://www.youtube.com/@fontedealegriadiaria`
+- Garantir `target="_blank" rel="noreferrer"` em todos.
 
-## 2. Carrossel — estilo geométrico + cores vibrantes
+### FIX 2 — Geolocalização no `CtaFunil`
 
-Editar `src/lib/carrosselTemplate.ts`:
+Em `src/components/CtaFunil.tsx`:
 
-1. **Backgrounds geométricos** (substituem os gradientes atuais):
-   - Slide 1 (hook): metade superior coral sólido + metade inferior teal sólido com **círculo dourado gigante** (sol estilizado) cortado pela divisão — alto contraste.
-   - Slides 2, 3, 5, 6 (texto): fundo creme com **3 faixas verticais finas** (coral / dourado / teal) na lateral esquerda, e um grande círculo coral semi-transparente sangrando do canto.
-   - Slide 4 (versículo): teal sólido com **grade de pequenos triângulos** dourados decorativos no topo e base; sem mais "estrelas aleatórias".
-   - Slide 7 (CTA): fundo coral sólido + faixa teal inferior + sol dourado central (PNG da marca).
-2. **Tipografia mais geométrica:** rótulos ("PARA PENSAR", "RESPIRA"...) em uppercase com letter-spacing largo (`0.25em` simulado por inserir espaços) e barra dourada espessa de 6px sob eles.
-3. **Numerador "1/7" como pílula** colorida no canto superior direito em vez de texto solto.
-4. **Cores mais vibrantes:** trocar `creamDark` por dourado mais saturado nas separações; usar `gold #F4C04D` como cor de acento real em todos os slides (linhas, números, bordas).
+- Adicionar `useState<number>(2)` para `nivel` interno (default 2) usado quando o prop não é passado.
+- `useEffect` no mount: chama `navigator.geolocation.getCurrentPosition` silenciosamente.
+- Sucesso → calcula Haversine vs Indaiatuba (-23.0896, -47.2183). `<= 80km` → `nivel=1`; senão `nivel=2`.
+- Falha/negação → mantém `nivel=2`.
+- Função `haversineKm` inline conforme especificação.
+- Se a página passou `nivel` por prop (Devocional.tsx faz isso), respeita o prop; caso contrário usa o estado calculado.
 
-## 3. Slide 7 (CTA) — ícones Instagram + logotipo
+### FIX 3 — Campo "interesse_contato" nos formulários
 
-Substituir as três pílulas "Compartilhe / Envie / Salve" por:
+**Migration** nova `supabase/migrations/...interesse_contato.sql`:
 
-1. **Três ícones do Instagram** desenhados como SVG paths nativos no canvas (sem dependência externa):
-   - Avião de papel (Send/Direct)
-   - Coração contornado (Compartilhar via Stories) — opcional substituir por ícone "compartilhar" (seta curva)
-   - Ícone de bookmark (Salvar)
-   
-   Renderizados como linhas brancas espessas (stroke 6px), tamanho ~110px, espaçados horizontalmente, sem caixas/pílulas — só os ícones limpos como aparecem na barra do Instagram.
-
-2. **Abaixo dos ícones:** o logotipo "fonte de alegria" estilizado (igual ao da Navbar):
-   - Sol PNG (`sun-icon.png`) à esquerda, ~120px, dentro de um círculo com gradiente coral (replicando o badge da navbar).
-   - Texto "fonte de" em fonte serif itálica branca + "alegria" em serif itálica bold dourado, lado a lado, tamanho ~64px.
-3. Remover textos "Compartilhe / Envie / Salve" e o handle gigante final (handle compacto fica no rodapé padrão).
-
-## 4. Correção do domínio para `fontedealegria.com.br`
-
-Substituir todas as ocorrências de `fontedealegria.com` por `fontedealegria.com.br` em:
-- `src/lib/storyTemplate.ts` (rodapé da arte)
-- `src/lib/carrosselTemplate.ts` (slides 7)
-- Verificar e atualizar também legendas geradas pela edge function `gerar-carrossel-devocional` (system prompt menciona `@fontedealegriadiaria` mas não o domínio — sem mudança necessária lá).
-
-Observação: este plano só corrige o domínio nas artes geradas. **Configurar o domínio `www.fontedealegria.com.br` em si é feito no painel Lovable** (Project → Settings → Domains) — não é alteração de código.
-
-## 5. Carregamento do sol PNG no canvas
-
-Adicionar utilitário em `src/lib/canvasUtils.ts`:
-```ts
-export const loadImage = (src: string): Promise<HTMLImageElement> =>
-  new Promise((res, rej) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => res(img);
-    img.onerror = rej;
-    img.src = src;
-  });
+```sql
+ALTER TABLE public.pedidos_oracao ADD COLUMN interesse_contato boolean NOT NULL DEFAULT false;
+ALTER TABLE public.historias ADD COLUMN interesse_contato boolean NOT NULL DEFAULT false;
+ALTER TABLE public.pedidos_oracao ADD COLUMN encaminhado_em timestamptz;
+ALTER TABLE public.historias ADD COLUMN encaminhado_em timestamptz;
+GRANT SELECT (interesse_contato, encaminhado_em) ON public.historias TO anon, authenticated;
 ```
-Importar `sun-icon.png` via `import sunIcon from "@/assets/sun-icon.png"` e passar para a função de render. Pré-carregar junto com `ensureFonts()`.
 
-## Arquivos modificados
+(Re-conceder grants nas colunas novas de `historias` para manter o padrão column-level já em vigor.)
 
-- `src/lib/storyTemplate.ts` — reescrita do layout (sem overflow), background geométrico, sol PNG, domínio `.com.br`.
-- `src/lib/carrosselTemplate.ts` — backgrounds geométricos vibrantes, slide 7 com ícones IG + logotipo, domínio `.com.br`.
-- `src/lib/canvasUtils.ts` — helper `loadImage` e pré-carregamento do sol.
+`**Oracao.tsx**`: adicionar checkbox `interesse_contato` antes do botão; estender schema Zod e estado; incluir no `insert`.
 
-Sem mudanças em banco de dados, edge functions ou rotas.
+`**Compartilhar.tsx**`: idem, logo após o checkbox de consentimento.
 
-## Após aprovar
+### FIX 4 — Aba "Leads Missionários" no Admin
 
-Implemento as mudanças e você pode testar gerando o Story do dia 28/04 (mesmo devocional do anexo) — o versículo longo de 1 Pedro 4 deve caber sem sobrepor o hook.
+Em `src/pages/Admin.tsx`:
+
+- Adicionar `<TabsTrigger value="leads">Leads Missionários</TabsTrigger>` entre "oracao" e "leitura".
+- Novo componente `AdminLeads`:
+  - Query `pedidos_oracao` onde `interesse_contato=true`.
+  - Query `historias` onde `interesse_contato=true`.
+  - Mescla com campo `source` ("Pedido de Oração" | "História"), ordena por `created_at desc`.
+  - Métricas no topo: Total / Pendentes / Encaminhados.
+  - Cards com Nome (ou "Anônimo"), Contato (ou "—"), badge source, data pt-BR, badge Encaminhado/Pendente.
+  - Botão "Encaminhar" (oculto se `encaminhado_em` setado) → `update({ encaminhado_em: new Date().toISOString() })` na tabela correta + invalidate.
+
+A coluna `encaminhado_em` é criada no mesmo migration do FIX 3.
+
+### FIX 5 — SEO com `react-helmet-async`
+
+- `bun add react-helmet-async`
+- `main.tsx`: envolve `<App />` em `<HelmetProvider>`.
+- Criar `src/components/SEO.tsx` exatamente como especificado.
+- Aplicar `<SEO ... />` em: `Index.tsx`, `Devocional.tsx` (dinâmico, usando `dev?.titulo` e `dev?.meditacao` → strip HTML + slice 155), `Oracao.tsx`, `Historias.tsx`, `Conecte.tsx`, `Sobre.tsx`.
+
+### FIX 6 — Canonical, robots, theme-color
+
+Em `index.html` `<head>`:
+
+```html
+<link rel="canonical" href="https://fontedealegria.com.br"/>
+<meta name="robots" content="index, follow"/>
+<meta property="og:site_name" content="Fonte de Alegria"/>
+<meta name="theme-color" content="#C4533A"/>
+```
+
+Manter o `<title>` já existente (`Fonte de Alegria — Devocional Diário`).
+
+### FIX 7 — Conteúdo do `Conecte.tsx`
+
+Atualmente o arquivo já tem textos preenchidos (não vazios) mas com conteúdo levemente diferente do solicitado. Vou alinhar com o texto pedido:
+
+- Igreja: descrição, endereço "Rua Ademar de Barros, 1498 — Cidade Nova I, Indaiatuba SP", horário "Sábado 9h00 (Escola Sabatina) e 10:15h (Culto Divino)", botão "Ver no Instagram" → `https://www.instagram.com/iasdcentralindaiatuba/`.
+- Novo Tempo: descrição reduzida + 3 itens de lista conforme spec, botão "Acessar Novo Tempo".
+- Pequenos Grupos: descrição + 3 itens; botão "Quero participar" usando `<Link to="/oracao">` (componente `Link`, variant outline rounded-full) — substitui o `<a href="https://wa.me/">` atual.
+
+### FIX 8 — Footer
+
+Em `Footer.tsx`, substituir os textos atuais pelos solicitados:
+
+- Parágrafo da marca, título "Explorar" e links da primeira coluna, título "Conecte-se" e links da segunda coluna, copyright "© 2025 Fonte de Alegria. Feito com propósito para a glória de Deus."
+
+### FIX 9 — Navbar brand
+
+Em `Navbar.tsx`, o brand já mostra "fonte de" + "alegria" via duas spans. Confirmar que o conteúdo é exatamente:
+
+- `<span class="text-foreground">fonte de </span>`
+- `<span class="text-gradient-warm font-bold">alegria</span>`
+(O arquivo atual já está assim; nenhuma mudança real necessária — apenas verificação.)
+
+### O que NÃO será alterado
+
+- Design visual, cores, fontes, gradientes.
+- Templates de carrossel/stories (`carrosselTemplate.ts`, `storyTemplate.ts`) — já entregues em iteração anterior.
+- Layouts de Devocional, Historias, PlanoLeitura, Auth, Compartilhar (apenas adição do checkbox em Compartilhar e do `<SEO/>` em algumas).
+- Estrutura de rotas em `App.tsx`.
+- Estrutura da integração Supabase (apenas as 2 colunas novas).
+
+### Detalhes técnicos
+
+- `react-helmet-async` é SSR-safe e leve; necessário envolver com `HelmetProvider`.
+- Updates em `historias`/`pedidos_oracao` via Admin já passam pela RLS de admin existente — sem novas policies.
+- O `column-level GRANT` precisa ser re-emitido para incluir as colunas novas (caso contrário leitores anon/authenticated não as veem).
+- Geolocalização: chamada apenas no client; sem prompt customizado (apenas o nativo do browser).
