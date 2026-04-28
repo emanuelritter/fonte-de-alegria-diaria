@@ -14,6 +14,7 @@ import Conecte from "./pages/Conecte.tsx";
 import Sobre from "./pages/Sobre.tsx";
 import Auth from "./pages/Auth.tsx";
 import Admin from "./pages/Admin.tsx";
+import GerarCarrossel from "./pages/GerarCarrossel.tsx";
 
 const queryClient = new QueryClient();
 
@@ -35,6 +36,7 @@ const App = () => (
           <Route path="/sobre" element={<Sobre />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/gerar-carrossel" element={<GerarCarrossel />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

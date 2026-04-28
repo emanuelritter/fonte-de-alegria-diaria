@@ -1,6 +1,6 @@
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { Menu, X, Sun, LogIn, Shield, LogOut } from "lucide-react";
+import { Menu, X, Sun, LogIn, Shield, LogOut, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,34 +50,54 @@ export const Navbar = () => {
       );
     }
 
+    const carrosselLink = (
+      <Link
+        to="/gerar-carrossel"
+        className={cn(
+          variant === "desktop"
+            ? `${desktopBase} text-foreground/80 hover:text-primary hover:bg-secondary`
+            : `${mobileBase} text-foreground/80 hover:bg-secondary`
+        )}
+      >
+        <Layers className="h-4 w-4" />
+        Carrossel
+      </Link>
+    );
+
     if (isAdmin) {
       return (
-        <Link
-          to="/admin"
-          className={cn(
-            variant === "desktop"
-              ? `${desktopBase} text-primary bg-secondary hover:bg-secondary/80`
-              : `${mobileBase} text-primary bg-secondary`
-          )}
-        >
-          <Shield className="h-4 w-4" />
-          Admin
-        </Link>
+        <>
+          {carrosselLink}
+          <Link
+            to="/admin"
+            className={cn(
+              variant === "desktop"
+                ? `${desktopBase} text-primary bg-secondary hover:bg-secondary/80`
+                : `${mobileBase} text-primary bg-secondary`
+            )}
+          >
+            <Shield className="h-4 w-4" />
+            Admin
+          </Link>
+        </>
       );
     }
 
     return (
-      <button
-        onClick={handleSignOut}
-        className={cn(
-          variant === "desktop"
-            ? `${desktopBase} text-foreground/80 hover:text-primary hover:bg-secondary`
-            : `${mobileBase} text-foreground/80 hover:bg-secondary text-left`
-        )}
-      >
-        <LogOut className="h-4 w-4" />
-        Sair
-      </button>
+      <>
+        {carrosselLink}
+        <button
+          onClick={handleSignOut}
+          className={cn(
+            variant === "desktop"
+              ? `${desktopBase} text-foreground/80 hover:text-primary hover:bg-secondary`
+              : `${mobileBase} text-foreground/80 hover:bg-secondary text-left`
+          )}
+        >
+          <LogOut className="h-4 w-4" />
+          Sair
+        </button>
+      </>
     );
   };
 
