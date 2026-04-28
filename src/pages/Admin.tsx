@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageShell } from "@/components/Layout/PageShell";
@@ -148,9 +148,9 @@ const AdminSemana = () => {
   const [itens, setItens] = useState<SemanaItem[]>([]);
   const [salvando, setSalvando] = useState(false);
 
-  // Sincroniza estado local com dados do banco quando muda a semana
-  useState(() => undefined); // noop
-  if (existentes && itens.length === 0) {
+  // Sincroniza estado local com dados do banco quando muda a semana ou chegam dados
+  useEffect(() => {
+    if (!existentes) return;
     const inicial = datas.map((data) => {
       const ex = existentes.find((e: any) => e.data === data);
       return ex
@@ -167,11 +167,11 @@ const AdminSemana = () => {
         : { data, titulo: "", versiculo: "", referencia: "", meditacao: "", oracao: "", publicado: false };
     });
     setItens(inicial);
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [existentes, inicio]);
 
   const recarregar = (novoInicio: string) => {
     setInicio(novoInicio);
-    setItens([]); // força recarregar via efeito acima
     qc.invalidateQueries({ queryKey: ["admin", "semana"] });
   };
 
@@ -209,7 +209,7 @@ const AdminSemana = () => {
       const { error } = await supabase.from("devocionais").upsert(payload, { onConflict: "data" });
       if (error) throw error;
       toast.success(`${validos.length} devocionais salvos${publicar ? " e publicados" : " como rascunho"}.`);
-      setItens([]); // recarrega da fonte
+      qc.invalidateQueries({ queryKey: ["admin", "semana"] });
       qc.invalidateQueries({ queryKey: ["admin"] });
       qc.invalidateQueries({ queryKey: ["devocional"] });
       qc.invalidateQueries({ queryKey: ["devocionais"] });
