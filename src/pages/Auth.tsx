@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -43,7 +42,7 @@ const Auth = () => {
     setBusy(true);
     const { error } = await supabase.auth.signUp({
       ...(parsed.data as Cred),
-      options: { emailRedirectTo: `${window.location.origin}/admin` },
+      options: { emailRedirectTo: `${window.location.origin}/auth-callback` },
     });
     setBusy(false);
     if (error) { toast.error(error.message); return; }
@@ -52,8 +51,21 @@ const Auth = () => {
 
   const google = async () => {
     setBusy(true);
-    const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: `${window.location.origin}/admin` });
-    if (r.error) { toast.error("Erro ao entrar com Google"); setBusy(false); }
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth-callback`,
+        },
+      });
+      if (error) {
+        toast.error("Erro ao entrar com Google: " + error.message);
+        setBusy(false);
+      }
+    } catch (e) {
+      toast.error("Erro ao entrar com Google");
+      setBusy(false);
+    }
   };
 
   return (
