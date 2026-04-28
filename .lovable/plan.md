@@ -1,112 +1,63 @@
-## Plano de melhorias funcionais e estratégicas
+## Aba "Usuários & Admins" no painel — gestão de papéis
 
-Aplico 9 correções pontuais — sem mexer no design visual, sem criar gerador de carrossel.
+### Diagnóstico do erro 503 atual
 
-### FIX 1 — Links sociais
+Os 503 (`PGRST002 / Could not query the database for the schema cache`) que apareceram no replay são **transitórios** — acontecem por alguns segundos após uma migration enquanto o PostgREST rebuilda o cache do schema (acabamos de adicionar 4 colunas). Validei agora consultando o banco e ele já está respondendo normal. Não é um bug do código; resolve sozinho. **Não precisa de mudança para isso.**
 
-Substituir em `Navbar.tsx`, `Footer.tsx`, `Index.tsx`, `Conecte.tsx` (e qualquer outro):
+### O que está faltando funcionalmente
 
-- `https://instagram.com` → `https://www.instagram.com/fontedealegriadiaria/`
-- `https://youtube.com` → `https://www.youtube.com/@fontedealegriadiaria`
-- Garantir `target="_blank" rel="noreferrer"` em todos.
+Hoje só existe uma forma de virar admin: rodando SQL manualmente. O painel não lista usuários nem permite promover/rebaixar. Vou adicionar isso.
 
-### FIX 2 — Geolocalização no `CtaFunil`
+### Mudanças
 
-Em `src/components/CtaFunil.tsx`:
+**1. Backend — função SECURITY DEFINER `admin_list_users()`**
 
-- Adicionar `useState<number>(2)` para `nivel` interno (default 2) usado quando o prop não é passado.
-- `useEffect` no mount: chama `navigator.geolocation.getCurrentPosition` silenciosamente.
-- Sucesso → calcula Haversine vs Indaiatuba (-23.0896, -47.2183). `<= 80km` → `nivel=1`; senão `nivel=2`.
-- Falha/negação → mantém `nivel=2`.
-- Função `haversineKm` inline conforme especificação.
-- Se a página passou `nivel` por prop (Devocional.tsx faz isso), respeita o prop; caso contrário usa o estado calculado.
-
-### FIX 3 — Campo "interesse_contato" nos formulários
-
-**Migration** nova `supabase/migrations/...interesse_contato.sql`:
+Como a tabela `auth.users` não pode ser lida via PostgREST a partir do client, criar uma RPC que retorna a união de `auth.users` + `public.user_roles`, restrita a admins:
 
 ```sql
-ALTER TABLE public.pedidos_oracao ADD COLUMN interesse_contato boolean NOT NULL DEFAULT false;
-ALTER TABLE public.historias ADD COLUMN interesse_contato boolean NOT NULL DEFAULT false;
-ALTER TABLE public.pedidos_oracao ADD COLUMN encaminhado_em timestamptz;
-ALTER TABLE public.historias ADD COLUMN encaminhado_em timestamptz;
-GRANT SELECT (interesse_contato, encaminhado_em) ON public.historias TO anon, authenticated;
+CREATE OR REPLACE FUNCTION public.admin_list_users()
+RETURNS TABLE(user_id uuid, email text, created_at timestamptz, is_admin boolean)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+BEGIN
+  IF NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'forbidden';
+  END IF;
+  RETURN QUERY
+    SELECT u.id, u.email::text, u.created_at,
+           EXISTS(SELECT 1 FROM public.user_roles r
+                  WHERE r.user_id = u.id AND r.role = 'admin') AS is_admin
+    FROM auth.users u
+    ORDER BY u.created_at DESC;
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION public.admin_list_users() FROM anon, PUBLIC;
+GRANT EXECUTE ON FUNCTION public.admin_list_users() TO authenticated;
 ```
 
-(Re-conceder grants nas colunas novas de `historias` para manter o padrão column-level já em vigor.)
+A RLS de `user_roles` já bloqueia inserts/deletes de não-admins (policy restritiva existente), então o INSERT/DELETE direto pelo client funciona apenas para admins logados. **Sem novas policies necessárias.**
 
-`**Oracao.tsx**`: adicionar checkbox `interesse_contato` antes do botão; estender schema Zod e estado; incluir no `insert`.
+**2. Frontend — nova aba "Usuários" no Admin**
 
-`**Compartilhar.tsx**`: idem, logo após o checkbox de consentimento.
+- Adicionar `<TabsTrigger value="usuarios">Usuários</TabsTrigger>` (entre "Leads Missionários" e "Plano").
+- Novo componente `AdminUsuarios`:
+  - Query: `supabase.rpc("admin_list_users")` → lista todos os usuários com flag `is_admin`.
+  - Métricas no topo: **Total de usuários** / **Admins** / **Pendentes** (não-admins).
+  - Cards/linhas por usuário mostrando:
+    - Email
+    - Data de cadastro (pt-BR)
+    - Badge: verde "Admin" ou cinza "Usuário"
+    - **Botão "Tornar admin"** (visível quando `!is_admin`) → `insert` em `user_roles`.
+    - **Botão "Remover admin"** (visível quando `is_admin` e o usuário não é o próprio logado, para evitar lockout) → `delete` em `user_roles` filtrando `user_id` + `role='admin'`.
+  - Após cada ação, invalidar a query.
+  - Toast de sucesso/erro.
 
-### FIX 4 — Aba "Leads Missionários" no Admin
+**3. Salvaguardas**
 
-Em `src/pages/Admin.tsx`:
-
-- Adicionar `<TabsTrigger value="leads">Leads Missionários</TabsTrigger>` entre "oracao" e "leitura".
-- Novo componente `AdminLeads`:
-  - Query `pedidos_oracao` onde `interesse_contato=true`.
-  - Query `historias` onde `interesse_contato=true`.
-  - Mescla com campo `source` ("Pedido de Oração" | "História"), ordena por `created_at desc`.
-  - Métricas no topo: Total / Pendentes / Encaminhados.
-  - Cards com Nome (ou "Anônimo"), Contato (ou "—"), badge source, data pt-BR, badge Encaminhado/Pendente.
-  - Botão "Encaminhar" (oculto se `encaminhado_em` setado) → `update({ encaminhado_em: new Date().toISOString() })` na tabela correta + invalidate.
-
-A coluna `encaminhado_em` é criada no mesmo migration do FIX 3.
-
-### FIX 5 — SEO com `react-helmet-async`
-
-- `bun add react-helmet-async`
-- `main.tsx`: envolve `<App />` em `<HelmetProvider>`.
-- Criar `src/components/SEO.tsx` exatamente como especificado.
-- Aplicar `<SEO ... />` em: `Index.tsx`, `Devocional.tsx` (dinâmico, usando `dev?.titulo` e `dev?.meditacao` → strip HTML + slice 155), `Oracao.tsx`, `Historias.tsx`, `Conecte.tsx`, `Sobre.tsx`.
-
-### FIX 6 — Canonical, robots, theme-color
-
-Em `index.html` `<head>`:
-
-```html
-<link rel="canonical" href="https://fontedealegria.com.br"/>
-<meta name="robots" content="index, follow"/>
-<meta property="og:site_name" content="Fonte de Alegria"/>
-<meta name="theme-color" content="#C4533A"/>
-```
-
-Manter o `<title>` já existente (`Fonte de Alegria — Devocional Diário`).
-
-### FIX 7 — Conteúdo do `Conecte.tsx`
-
-Atualmente o arquivo já tem textos preenchidos (não vazios) mas com conteúdo levemente diferente do solicitado. Vou alinhar com o texto pedido:
-
-- Igreja: descrição, endereço "Rua Ademar de Barros, 1498 — Cidade Nova I, Indaiatuba SP", horário "Sábado 9h00 (Escola Sabatina) e 10:15h (Culto Divino)", botão "Ver no Instagram" → `https://www.instagram.com/iasdcentralindaiatuba/`.
-- Novo Tempo: descrição reduzida + 3 itens de lista conforme spec, botão "Acessar Novo Tempo".
-- Pequenos Grupos: descrição + 3 itens; botão "Quero participar" usando `<Link to="/oracao">` (componente `Link`, variant outline rounded-full) — substitui o `<a href="https://wa.me/">` atual.
-
-### FIX 8 — Footer
-
-Em `Footer.tsx`, substituir os textos atuais pelos solicitados:
-
-- Parágrafo da marca, título "Explorar" e links da primeira coluna, título "Conecte-se" e links da segunda coluna, copyright "© 2025 Fonte de Alegria. Feito com propósito para a glória de Deus."
-
-### FIX 9 — Navbar brand
-
-Em `Navbar.tsx`, o brand já mostra "fonte de" + "alegria" via duas spans. Confirmar que o conteúdo é exatamente:
-
-- `<span class="text-foreground">fonte de </span>`
-- `<span class="text-gradient-warm font-bold">alegria</span>`
-(O arquivo atual já está assim; nenhuma mudança real necessária — apenas verificação.)
-
-### O que NÃO será alterado
-
-- Design visual, cores, fontes, gradientes.
-- Templates de carrossel/stories (`carrosselTemplate.ts`, `storyTemplate.ts`) — já entregues em iteração anterior.
-- Layouts de Devocional, Historias, PlanoLeitura, Auth, Compartilhar (apenas adição do checkbox em Compartilhar e do `<SEO/>` em algumas).
-- Estrutura de rotas em `App.tsx`.
-- Estrutura da integração Supabase (apenas as 2 colunas novas).
+- Não permitir que o admin remova o próprio status (botão escondido quando `user_id === user.id`) — evita auto-lockout.
+- O `useAuth` continua chamando `is_current_user_admin` (sem mudança), e o gate de acesso à página admin segue funcionando.
 
 ### Detalhes técnicos
-
-- `react-helmet-async` é SSR-safe e leve; necessário envolver com `HelmetProvider`.
-- Updates em `historias`/`pedidos_oracao` via Admin já passam pela RLS de admin existente — sem novas policies.
-- O `column-level GRANT` precisa ser re-emitido para incluir as colunas novas (caso contrário leitores anon/authenticated não as veem).
-- Geolocalização: chamada apenas no client; sem prompt customizado (apenas o nativo do browser).
+- Sem nova policy em `user_roles` — as existentes ("Admins can manage roles" + restritiva de INSERT) já cobrem o uso.
+- A função usa `SECURITY DEFINER` porque `auth.users` não é exposto via PostgREST direto; o check `has_role` interno garante que só admins veem a lista.
+- Erros 503 transitórios pós-migration: documentados, não há fix de código.
