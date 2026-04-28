@@ -1,34 +1,39 @@
-# Mostrar acesso de admin no menu
+# Simplificar autenticação para apenas e-mail/senha
 
-Hoje a página `/auth` (login) e `/admin` existem, mas não há link visível para elas — só quem digita a URL chega lá. Vamos adicionar um item no menu (tanto na barra do topo no desktop quanto no menu de 3 barras no mobile) que muda conforme o estado do usuário.
+Sua aplicação **já usa apenas e-mail/senha** na página de login (`src/pages/Auth.tsx`). O que existe de Google/OAuth é apenas código morto deixado pela infraestrutura do Lovable Cloud. Vou remover esse código residual e a dependência relacionada.
 
-## Comportamento
+Sobre a **migração para Hostinger + Supabase próprio**: isso é uma mudança de infraestrutura externa (criar um projeto Supabase na sua conta, atualizar as variáveis `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY`, e fazer deploy do build estático na Hostinger). O código abaixo já fica 100% compatível com qualquer projeto Supabase padrão — basta trocar as credenciais quando você for migrar.
 
-Usando o hook `useAuth` (já existe em `src/hooks/useAuth.ts`), o item exibido será:
+## O que será feito
 
-- **Não logado** → "Entrar" → leva para `/auth`
-- **Logado e admin** → "Admin" (com ícone de escudo) → leva para `/admin`
-- **Logado mas não admin** → "Sair" → faz `supabase.auth.signOut()` e volta para `/`
+1. **Remover o módulo OAuth do Lovable**
+  - Apagar a pasta `src/integrations/lovable/` (não é importada por nenhum componente).
+  - Remover a dependência `@lovable.dev/cloud-auth-js` do `package.json`.
+2. **Remover a página de callback OAuth não utilizada**
+  - Apagar `src/pages/AuthCallback.tsx` (não está registrada em nenhuma rota).
+3. **Manter intactos os fluxos atuais**
+  - `src/pages/Auth.tsx`: já tem apenas abas "Entrar" e "Criar conta" com e-mail/senha — sem alterações.
+  - `src/hooks/useAuth.ts`: usa apenas `supabase.auth` padrão — sem alterações.
+  - `src/components/Layout/Navbar.tsx`: botões Entrar / Admin / Sair continuam funcionando — sem alterações.
+  - Banco, RLS, função `is_current_user_admin` e painel Admin: sem alterações.
 
-Isso evita poluir o menu para visitantes comuns e ao mesmo tempo dá um caminho claro para a equipe entrar e administrar.
+## Detalhes técnicos
 
-## Onde aparece
+Arquivos removidos:
 
-- **Desktop (≥ lg):** como último item da `<nav>` no `Navbar`, visualmente destacado (botão arredondado em vez de link de texto) para diferenciar das páginas públicas.
-- **Mobile (menu hamburguer):** dentro da gaveta que abre, abaixo dos demais links, com um separador sutil acima.
+- `src/integrations/lovable/index.ts`
+- `src/pages/AuthCallback.tsx`
 
-## Mudanças técnicas
+`package.json`: remover a linha `"@lovable.dev/cloud-auth-js": "^1.1.2"`.
 
-Arquivo único: `src/components/Layout/Navbar.tsx`
+Resultado: codebase de auth fica enxuto, sem dependências de OAuth, e totalmente portável para um Supabase hospedado na sua conta. Para a migração futura, você só precisará atualizar `.env` com a URL e a chave anônima do novo projeto Supabase — nenhuma mudança de código será necessária.
 
-- Importar `useAuth` e `supabase`.
-- Importar ícones `LogIn`, `Shield`, `LogOut` do `lucide-react`.
-- Adicionar um helper `AuthAction` interno que decide qual item renderizar com base em `loading`, `user`, `isAdmin`.
-- Reutilizar o mesmo componente nas duas seções (desktop e mobile) com uma prop `variant` para ajustar o estilo (pill no desktop, item de lista no mobile).
-- Enquanto `loading` for `true`, não renderizar nada (evita flicker mostrando "Entrar" e depois "Admin").
+## Próximo passo (depois desta limpeza)
 
-## O que NÃO muda
+Quando você criar o projeto Supabase na sua conta e quiser migrar, me avise. Eu te oriento a:
 
-- Nenhuma alteração em rotas, design geral, cores, tipografia.
-- Nenhuma mudança no backend, RLS ou na lógica de `is_current_user_admin`.
-- Os links públicos (Devocional, Plano, Histórias, Oração, Conecte, Sobre) continuam iguais.
+- Exportar o schema atual (tabelas, RLS, funções) como SQL.
+- Importar no novo Supabase.
+- Atualizar as variáveis de ambiente no build da Hostinger.
+
+Aprove o plano e eu aplico a limpeza.
