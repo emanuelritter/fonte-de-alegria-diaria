@@ -17,6 +17,22 @@ export const ensureFonts = async () => {
   }
 };
 
+/** Carrega uma imagem (ex.: logo do sol) para uso em canvas. */
+const imageCache = new Map<string, Promise<HTMLImageElement>>();
+export const loadImage = (src: string): Promise<HTMLImageElement> => {
+  const cached = imageCache.get(src);
+  if (cached) return cached;
+  const p = new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = (e) => reject(e);
+    img.src = src;
+  });
+  imageCache.set(src, p);
+  return p;
+};
+
 /** Quebra texto em linhas que cabem em maxWidth, respeitando palavras. */
 export const wrapLines = (
   ctx: CanvasRenderingContext2D,
