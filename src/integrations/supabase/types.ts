@@ -115,7 +115,9 @@ export type Database = {
           created_at: string
           depoimento: string
           destaque: boolean
+          encaminhado_em: string | null
           id: string
+          interesse_contato: boolean
           nome: string
           status: Database["public"]["Enums"]["historia_status"]
           updated_at: string
@@ -127,7 +129,9 @@ export type Database = {
           created_at?: string
           depoimento: string
           destaque?: boolean
+          encaminhado_em?: string | null
           id?: string
+          interesse_contato?: boolean
           nome: string
           status?: Database["public"]["Enums"]["historia_status"]
           updated_at?: string
@@ -139,7 +143,9 @@ export type Database = {
           created_at?: string
           depoimento?: string
           destaque?: boolean
+          encaminhado_em?: string | null
           id?: string
+          interesse_contato?: boolean
           nome?: string
           status?: Database["public"]["Enums"]["historia_status"]
           updated_at?: string
@@ -152,7 +158,9 @@ export type Database = {
           atendido: boolean
           contato: string | null
           created_at: string
+          encaminhado_em: string | null
           id: string
+          interesse_contato: boolean
           nome: string | null
           pedido: string
         }
@@ -161,7 +169,9 @@ export type Database = {
           atendido?: boolean
           contato?: string | null
           created_at?: string
+          encaminhado_em?: string | null
           id?: string
+          interesse_contato?: boolean
           nome?: string | null
           pedido: string
         }
@@ -170,7 +180,9 @@ export type Database = {
           atendido?: boolean
           contato?: string | null
           created_at?: string
+          encaminhado_em?: string | null
           id?: string
+          interesse_contato?: boolean
           nome?: string | null
           pedido?: string
         }
@@ -238,7 +250,9 @@ export type Database = {
           created_at: string
           depoimento: string
           destaque: boolean
+          encaminhado_em: string | null
           id: string
+          interesse_contato: boolean
           nome: string
           status: Database["public"]["Enums"]["historia_status"]
           updated_at: string
