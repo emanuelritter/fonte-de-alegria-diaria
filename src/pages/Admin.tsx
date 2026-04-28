@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { LogOut, ShieldOff, Plus, Trash2, Check, X, Star, Send, MessageSquare, BookHeart } from "lucide-react";
+import { LogOut, ShieldOff, Plus, Trash2, Check, X, Star, Send, MessageSquare, BookHeart, Shield, ShieldCheck, Users } from "lucide-react";
 import { CalendarDays, FileText, CircleCheck, CircleDashed } from "lucide-react";
 
 const Admin = () => {
@@ -59,12 +59,14 @@ const Admin = () => {
             <TabsTrigger value="historias" className="rounded-full">Histórias</TabsTrigger>
             <TabsTrigger value="oracao" className="rounded-full">Oração</TabsTrigger>
             <TabsTrigger value="leads" className="rounded-full">Leads Missionários</TabsTrigger>
+            <TabsTrigger value="usuarios" className="rounded-full">Usuários</TabsTrigger>
             <TabsTrigger value="leitura" className="rounded-full">Plano</TabsTrigger>
           </TabsList>
           <TabsContent value="devocionais"><AdminDevocionais /></TabsContent>
           <TabsContent value="historias"><AdminHistorias /></TabsContent>
           <TabsContent value="oracao"><AdminOracao /></TabsContent>
           <TabsContent value="leads"><AdminLeads /></TabsContent>
+          <TabsContent value="usuarios"><AdminUsuarios currentUserId={user.id} /></TabsContent>
           <TabsContent value="leitura"><AdminLeitura /></TabsContent>
         </Tabs>
       </section>
