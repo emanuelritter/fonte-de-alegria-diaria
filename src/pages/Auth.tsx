@@ -42,30 +42,11 @@ const Auth = () => {
     setBusy(true);
     const { error } = await supabase.auth.signUp({
       ...(parsed.data as Cred),
-      options: { emailRedirectTo: `${window.location.origin}/auth-callback` },
+      options: { emailRedirectTo: `${window.location.origin}/admin` },
     });
     setBusy(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Conta criada! Você já pode entrar.");
-  };
-
-  const google = async () => {
-    setBusy(true);
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/auth-callback`,
-        },
-      });
-      if (error) {
-        toast.error("Erro ao entrar com Google: " + error.message);
-        setBusy(false);
-      }
-    } catch (e) {
-      toast.error("Erro ao entrar com Google");
-      setBusy(false);
-    }
   };
 
   return (
@@ -88,13 +69,6 @@ const Auth = () => {
           {(["signin","signup"] as const).map((tab) => (
             <TabsContent key={tab} value={tab}>
               <div className="bg-card p-7 rounded-3xl shadow-soft border border-border/50 space-y-4">
-                <Button onClick={google} variant="outline" className="w-full rounded-full" disabled={busy}>
-                  Continuar com Google
-                </Button>
-                <div className="relative text-center text-xs text-muted-foreground my-2">
-                  <span className="bg-card px-3 relative z-10">ou com e-mail</span>
-                  <div className="absolute inset-0 top-1/2 border-t border-border" />
-                </div>
                 <div>
                   <Label htmlFor={`email-${tab}`}>E-mail</Label>
                   <Input id={`email-${tab}`} type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
