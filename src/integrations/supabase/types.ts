@@ -241,6 +241,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_devocional_calendar: {
+        Args: { mes_inicio: string }
+        Returns: {
+          data: string
+          id: string
+          publicado: boolean
+          titulo: string
+        }[]
+      }
       admin_list_historias: {
         Args: never
         Returns: {
@@ -273,6 +282,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      admin_overview_stats: { Args: never; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
