@@ -53,8 +53,12 @@ export const CompartilharInstagram = (props: Props) => {
         description: "Poste e marque @fontedealegriadiaria 🌅",
       });
     } catch (e: any) {
+      console.error("[Stories] erro:", e);
       toast.error("Não foi possível gerar a arte", {
-        description: e?.message || "Tente novamente em instantes.",
+        description:
+          e?.message?.includes("Failed to fetch")
+            ? "Sem conexão com o servidor. Tente novamente."
+            : e?.message || "Tente novamente em instantes.",
       });
     } finally {
       setLoadingStory(false);
