@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import html2canvas from "html2canvas";
 import { toast } from "sonner";
 import { Sparkles, Trash2 } from "lucide-react";
 
@@ -36,8 +35,9 @@ import {
   EMPTY_CARROSSEL,
   TOTAL_SLIDES,
 } from "@/lib/carrosselSlides";
-import { SlideCanvas, SLIDE_SIZE } from "@/components/carrossel/SlideCanvas";
 import { SlidePreview } from "@/components/carrossel/SlidePreview";
+import { renderSlidePNG } from "@/lib/carrosselCanvas";
+import { downloadBlob, slugify } from "@/lib/canvasUtils";
 
 type DevocionalRow = {
   id: string;
@@ -55,7 +55,6 @@ const GerarCarrossel = () => {
   const [selectedDev, setSelectedDev] = useState<string>("");
   const [aiBusy, setAiBusy] = useState(false);
   const [exporting, setExporting] = useState({ active: false, current: 0, total: TOTAL_SLIDES });
-  const offscreenRef = useRef<HTMLDivElement>(null);
 
   // Auth gate
   useEffect(() => {
@@ -147,36 +146,16 @@ const GerarCarrossel = () => {
   };
 
   const baixarSlides = async () => {
-    const node = offscreenRef.current;
-    if (!node) return;
     setExporting({ active: true, current: 0, total: TOTAL_SLIDES });
     try {
-      // Ensure Fraunces is loaded before capture
       if (document.fonts?.ready) await document.fonts.ready;
-
-      const slides = node.querySelectorAll<HTMLDivElement>("[data-export-slide]");
-      for (let i = 0; i < slides.length; i++) {
-        setExporting({ active: true, current: i + 1, total: TOTAL_SLIDES });
-        const canvas = await html2canvas(slides[i], {
-          backgroundColor: "#0E0F0D",
-          scale: 1,
-          useCORS: true,
-          width: SLIDE_SIZE,
-          height: SLIDE_SIZE,
-          windowWidth: SLIDE_SIZE,
-          windowHeight: SLIDE_SIZE,
-        });
-        const blob: Blob = await new Promise((res) =>
-          canvas.toBlob((b) => res(b as Blob), "image/png", 1)
-        );
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `fda-slide-${String(i + 1).padStart(2, "0")}.png`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+      const baseName = `fda-${form.data || "carrossel"}-${slugify(form.titulo || "slide")}`;
+      for (let i = 1; i <= TOTAL_SLIDES; i++) {
+        setExporting({ active: true, current: i, total: TOTAL_SLIDES });
+        const blob = await renderSlidePNG(form, i);
+        downloadBlob(blob, `${baseName}-${String(i).padStart(2, "0")}.png`);
+        // pequena pausa para o navegador respirar entre downloads
+        await new Promise((r) => setTimeout(r, 120));
       }
       toast.success(`${TOTAL_SLIDES} slides baixados com sucesso!`);
     } catch (e) {
@@ -394,27 +373,6 @@ const GerarCarrossel = () => {
             />
           </main>
         </div>
-      </div>
-
-      {/* Off-screen full-size slides for PNG export */}
-      <div
-        ref={offscreenRef}
-        aria-hidden
-        style={{
-          position: "fixed",
-          top: 0,
-          left: -99999,
-          width: SLIDE_SIZE,
-          height: SLIDE_SIZE * TOTAL_SLIDES,
-          pointerEvents: "none",
-          opacity: 0,
-        }}
-      >
-        {Array.from({ length: TOTAL_SLIDES }, (_, i) => i + 1).map((n) => (
-          <div key={n} data-export-slide={n} style={{ width: SLIDE_SIZE, height: SLIDE_SIZE }}>
-            <SlideCanvas data={form} index={n} />
-          </div>
-        ))}
       </div>
     </PageShell>
   );

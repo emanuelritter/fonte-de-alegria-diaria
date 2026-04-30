@@ -1,33 +1,19 @@
 import { useEffect } from "react";
-import { CarrosselData, padSlide, parseHighlight } from "@/lib/carrosselSlides";
+import { C, CarrosselData, formatDataCurta, padSlide, parseHighlight } from "@/lib/carrosselSlides";
 
 /**
- * SLIDE 1080x1080 — design tokens hardcoded (post-brand, not app-brand).
- * Renders a single slide. Caller wraps it in a transform: scale() container
- * for preview. For PNG export, render at scale 1.
+ * SLIDE 1080x1080 — paleta solar vibrante.
+ * Este componente é apenas para PREVIEW (React/DOM).
+ * O export PNG é feito via Canvas2D nativo em src/lib/carrosselCanvas.ts.
  */
 
-const C = {
-  bg: "#0E0F0D",
-  primary: "#F0EDE8",
-  secondary: "#9A9490",
-  ghost: "#3A3530",
-  gold: "#C8963A",
-  coral: "#C4533A",
-  refText: "#6B6560",
-  muted: "#4A4540",
-  divider: "#1E1E1C",
-  verseRule: "#2A2520",
-};
-
 const FRAUNCES_HREF =
-  "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@1,9..144,700&display=swap";
+  "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,700;1,9..144,400;1,9..144,700;1,9..144,900&display=swap";
 
 let fontInjected = false;
 function useFraunces() {
   useEffect(() => {
-    if (fontInjected) return;
-    if (typeof document === "undefined") return;
+    if (fontInjected || typeof document === "undefined") return;
     if (document.querySelector(`link[href="${FRAUNCES_HREF}"]`)) {
       fontInjected = true;
       return;
@@ -42,34 +28,28 @@ function useFraunces() {
 
 const fraunces = `'Fraunces', Georgia, serif`;
 const inter = `'Inter', system-ui, sans-serif`;
-const mono = `ui-monospace, 'SF Mono', Menlo, Consolas, monospace`;
 
-const labelStyle: React.CSSProperties = {
-  fontFamily: inter,
-  fontSize: 11,
-  fontWeight: 600,
-  letterSpacing: "0.18em",
-  textTransform: "uppercase",
-  color: C.gold,
-};
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <div style={labelStyle}>{children}</div>;
-}
-
-function Divider({ color = C.divider, mt = 12 }: { color?: string; mt?: number }) {
-  return <div style={{ height: 1, background: color, marginTop: mt }} />;
-}
+export const SLIDE_SIZE = 1080;
 
 export interface SlideCanvasProps {
   data: CarrosselData;
   index: number; // 1..7
 }
 
-export const SLIDE_SIZE = 1080;
-
 export function SlideCanvas({ data, index }: SlideCanvasProps) {
   useFraunces();
+  const inner = (() => {
+    switch (index) {
+      case 1: return <Slide1 data={data} />;
+      case 2: return <Slide2 data={data} />;
+      case 3: return <Slide3 data={data} />;
+      case 4: return <Slide4 data={data} />;
+      case 5: return <Slide5 data={data} />;
+      case 6: return <Slide6 data={data} />;
+      case 7: return <Slide7 />;
+      default: return null;
+    }
+  })();
 
   return (
     <div
@@ -78,100 +58,178 @@ export function SlideCanvas({ data, index }: SlideCanvasProps) {
         position: "relative",
         width: SLIDE_SIZE,
         height: SLIDE_SIZE,
-        background: C.bg,
-        color: C.primary,
         fontFamily: inter,
         overflow: "hidden",
         boxSizing: "border-box",
       }}
     >
-      {/* Accent rule */}
-      <div
-        style={{
-          position: "absolute",
-          top: 72,
-          left: 72,
-          width: 44,
-          height: 2,
-          background: C.gold,
-        }}
-      />
-
-      {/* Brand mark */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: 52,
-          left: 72,
-          fontFamily: fraunces,
-          fontStyle: "italic",
-          fontSize: 13,
-          color: C.ghost,
-        }}
-      >
-        Fonte de Alegria
-      </div>
-
-      {/* Slide counter */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: 52,
-          right: 72,
-          fontFamily: mono,
-          fontSize: 13,
-          color: C.muted,
-        }}
-      >
-        {padSlide(index)}
-      </div>
-
-      {/* Content per slide */}
-      <Slide1 data={data} active={index === 1} />
-      {index === 2 && <Slide2 data={data} />}
-      {index === 3 && <Slide3 data={data} />}
-      {index === 4 && <Slide4 data={data} />}
-      {index === 5 && <Slide5 data={data} />}
-      {index === 6 && <Slide6 data={data} />}
-      {index === 7 && <Slide7 />}
+      {inner}
+      <Counter index={index} dark={isDarkSlide(index)} />
+      <Brand dark={isDarkSlide(index)} />
     </div>
   );
 }
 
+function isDarkSlide(i: number) {
+  // slides com fundo escuro (texto claro precisa)
+  return i === 1 || i === 3 || i === 4 || i === 6 || i === 7;
+}
+
+/* ============== PIECES ============== */
+
+function Counter({ index, dark }: { index: number; dark: boolean }) {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: 56,
+        right: 56,
+        padding: "10px 18px",
+        borderRadius: 999,
+        background: dark ? "rgba(255,255,255,0.14)" : "rgba(15,68,81,0.10)",
+        border: `1.5px solid ${dark ? "rgba(244,192,77,0.65)" : "rgba(15,68,81,0.35)"}`,
+        color: dark ? C.gold : C.tealDeep,
+        fontFamily: inter,
+        fontWeight: 700,
+        fontSize: 18,
+        letterSpacing: "0.12em",
+      }}
+    >
+      {padSlide(index)}
+    </div>
+  );
+}
+
+function Brand({ dark }: { dark: boolean }) {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        bottom: 48,
+        left: 60,
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        fontFamily: fraunces,
+        fontStyle: "italic",
+        fontSize: 22,
+        fontWeight: 700,
+        color: dark ? C.goldSoft : C.tealDeep,
+      }}
+    >
+      <SunMark size={28} color={dark ? C.gold : C.coralDeep} />
+      Fonte de Alegria
+    </div>
+  );
+}
+
+function SunMark({ size = 28, color = C.gold }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
+      <circle cx="16" cy="16" r="6" fill={color} />
+      {Array.from({ length: 8 }).map((_, i) => {
+        const a = (i * Math.PI) / 4;
+        const x1 = 16 + Math.cos(a) * 10;
+        const y1 = 16 + Math.sin(a) * 10;
+        const x2 = 16 + Math.cos(a) * 14;
+        const y2 = 16 + Math.sin(a) * 14;
+        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={color} strokeWidth="2.5" strokeLinecap="round" />;
+      })}
+    </svg>
+  );
+}
+
+function Pill({
+  children, bg, fg, border,
+}: { children: React.ReactNode; bg: string; fg: string; border?: string }) {
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        padding: "10px 22px",
+        borderRadius: 999,
+        background: bg,
+        color: fg,
+        border: border ? `2px solid ${border}` : undefined,
+        fontFamily: inter,
+        fontWeight: 800,
+        fontSize: 15,
+        letterSpacing: "0.18em",
+        textTransform: "uppercase",
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
 /* ============== SLIDE 1 — GANCHO ============== */
-function Slide1({ data, active }: { data: CarrosselData; active: boolean }) {
-  if (!active) return null;
+function Slide1({ data }: { data: CarrosselData }) {
   const text = data.gancho || "Sua pergunta provocadora aqui.";
-  const isShort = text.length <= 40;
+  const isShort = text.length <= 38;
+  const dataLabel = formatDataCurta(data.data);
+
   return (
     <>
+      {/* Fundo coral + gradient sunrise no rodapé */}
+      <div style={{ position: "absolute", inset: 0, background: C.coral }} />
+      <div
+        style={{
+          position: "absolute", inset: 0,
+          background: `radial-gradient(ellipse at 50% 110%, ${C.gold} 0%, ${C.coral} 35%, ${C.coralDeep} 70%, ${C.coralDark} 100%)`,
+        }}
+      />
+      {/* Anéis solares decorativos */}
+      <svg width="900" height="900" style={{ position: "absolute", top: -180, right: -200, opacity: 0.32 }}>
+        {[120, 180, 240, 320, 410].map((r) => (
+          <circle key={r} cx="450" cy="450" r={r} fill="none" stroke={C.gold} strokeWidth="3" />
+        ))}
+      </svg>
+
+      {/* Selo topo */}
+      <div style={{ position: "absolute", top: 56, left: 60 }}>
+        <Pill bg={C.gold} fg={C.tealDeep}>
+          Devocional{dataLabel ? ` · ${dataLabel}` : ""}
+        </Pill>
+      </div>
+
+      {/* Texto-gancho */}
       <div
         style={{
           position: "absolute",
-          top: 192, // 72 + 120
-          left: 72,
-          right: 72,
+          top: 230,
+          left: 60,
+          right: 60,
           fontFamily: fraunces,
           fontStyle: "italic",
-          fontWeight: 700,
-          fontSize: isShort ? 88 : 76,
-          lineHeight: 1.1,
-          color: C.gold,
+          fontWeight: 900,
+          fontSize: isShort ? 124 : 96,
+          lineHeight: 1.02,
+          color: C.cream,
+          letterSpacing: "-0.02em",
+          textShadow: "0 6px 24px rgba(0,0,0,0.18)",
         }}
       >
         {text}
       </div>
+
+      {/* CTA inferior */}
       <div
         style={{
           position: "absolute",
-          bottom: 100,
-          right: 72,
+          bottom: 48,
+          right: 60,
+          display: "flex",
+          alignItems: "center",
+          gap: 14,
+          color: C.cream,
           fontFamily: inter,
-          fontSize: 14,
-          color: C.muted,
+          fontWeight: 700,
+          fontSize: 22,
+          letterSpacing: "0.04em",
         }}
       >
-        Deslize para ler →
+        Deslize <span style={{ fontSize: 28 }}>→</span>
       </div>
     </>
   );
@@ -180,64 +238,99 @@ function Slide1({ data, active }: { data: CarrosselData; active: boolean }) {
 /* ============== SLIDE 2 — CONTEXTO ============== */
 function Slide2({ data }: { data: CarrosselData }) {
   return (
-    <div style={{ position: "absolute", top: 192, left: 72, right: 72 }}>
-      <SectionLabel>Contexto</SectionLabel>
-      <Divider />
-      <div
-        style={{
-          marginTop: 48,
-          fontFamily: fraunces,
-          fontStyle: "italic",
-          fontSize: 58,
-          lineHeight: 1.2,
-          color: C.primary,
-        }}
-      >
-        {data.contexto || "Descreva o cenário do leitor aqui."}
+    <>
+      <div style={{ position: "absolute", inset: 0, background: C.sand }} />
+      {/* Bloco coral diagonal à direita */}
+      <svg width={SLIDE_SIZE} height={SLIDE_SIZE} style={{ position: "absolute", inset: 0 }}>
+        <polygon
+          points={`${SLIDE_SIZE},0 ${SLIDE_SIZE},${SLIDE_SIZE} ${SLIDE_SIZE * 0.55},${SLIDE_SIZE} ${SLIDE_SIZE * 0.72},0`}
+          fill={C.coral}
+        />
+        <polygon
+          points={`${SLIDE_SIZE},0 ${SLIDE_SIZE},${SLIDE_SIZE * 0.18} ${SLIDE_SIZE * 0.78},0`}
+          fill={C.gold}
+        />
+      </svg>
+
+      <div style={{ position: "absolute", top: 200, left: 60, right: 60 }}>
+        <Pill bg={C.tealDeep} fg={C.gold}>Onde você está</Pill>
+        <div
+          style={{
+            marginTop: 44,
+            fontFamily: fraunces,
+            fontStyle: "italic",
+            fontWeight: 700,
+            fontSize: 64,
+            lineHeight: 1.18,
+            color: C.tealDeep,
+            maxWidth: "78%",
+          }}
+        >
+          {data.contexto || "Descreva o cenário do leitor aqui."}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
-/* ============== SLIDE 3 — PALAVRA DE HOJE ============== */
+/* ============== SLIDE 3 — VERSÍCULO ============== */
 function Slide3({ data }: { data: CarrosselData }) {
   return (
-    <div style={{ position: "absolute", top: 192, left: 72, right: 72 }}>
-      <SectionLabel>Palavra de hoje</SectionLabel>
+    <>
       <div
         style={{
-          marginTop: 60,
-          paddingLeft: 28,
-          borderLeft: `3px solid ${C.gold}`,
+          position: "absolute", inset: 0,
+          background: `linear-gradient(160deg, ${C.teal} 0%, ${C.tealDeep} 60%, ${C.tealInk} 100%)`,
+        }}
+      />
+      {/* Sol grande translúcido */}
+      <div
+        style={{
+          position: "absolute", top: -200, left: -200, width: 700, height: 700,
+          borderRadius: "50%",
+          background: `radial-gradient(circle, ${C.gold}33 0%, transparent 70%)`,
+        }}
+      />
+
+      <div style={{ position: "absolute", top: 200, left: 60, right: 60 }}>
+        <Pill bg={C.gold} fg={C.tealDeep}>Palavra de hoje</Pill>
+      </div>
+
+      {/* Card central */}
+      <div
+        style={{
+          position: "absolute",
+          top: 320,
+          left: 80,
+          right: 80,
+          padding: "60px 56px 50px",
+          background: "rgba(255,255,255,0.06)",
+          border: `2px solid ${C.gold}`,
+          borderRadius: 28,
+          boxShadow: `0 0 0 1px ${C.gold}55 inset`,
         }}
       >
-        <div style={{ height: 1, background: C.verseRule }} />
+        <div style={{ fontFamily: fraunces, fontStyle: "italic", fontWeight: 400, fontSize: 80, color: C.gold, lineHeight: 0.6, height: 40 }}>
+          “
+        </div>
         <div
           style={{
-            marginTop: 32,
-            marginBottom: 32,
+            marginTop: 16,
             fontFamily: fraunces,
             fontStyle: "italic",
-            fontSize: 34,
-            lineHeight: 1.65,
-            color: C.primary,
+            fontWeight: 400,
+            fontSize: 42,
+            lineHeight: 1.45,
+            color: C.cream,
           }}
         >
           {data.versiculo || "O versículo aparece aqui."}
         </div>
-        <div style={{ height: 1, background: C.verseRule }} />
-        <div
-          style={{
-            marginTop: 16,
-            fontFamily: mono,
-            fontSize: 18,
-            color: C.refText,
-          }}
-        >
-          {data.referencia || "Livro 1:1"}
+        <div style={{ marginTop: 36, display: "flex", justifyContent: "flex-end" }}>
+          <Pill bg={C.gold} fg={C.tealDeep}>{data.referencia || "Livro 1:1"}</Pill>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -245,142 +338,261 @@ function Slide3({ data }: { data: CarrosselData }) {
 function Slide4({ data }: { data: CarrosselData }) {
   const parts = parseHighlight(data.reflexao || "Sua reflexão com uma *palavra* destacada.");
   return (
-    <div style={{ position: "absolute", top: 192, left: 72, right: 72 }}>
-      <SectionLabel>Reflexão</SectionLabel>
-      <Divider />
+    <>
+      <div style={{ position: "absolute", inset: 0, background: C.coralDeep }} />
+      {/* Bloco areia diagonal inferior */}
+      <svg width={SLIDE_SIZE} height={SLIDE_SIZE} style={{ position: "absolute", inset: 0 }}>
+        <polygon
+          points={`0,${SLIDE_SIZE} 0,${SLIDE_SIZE * 0.78} ${SLIDE_SIZE * 0.45},${SLIDE_SIZE} `}
+          fill={C.sand}
+        />
+      </svg>
+      {/* Aspas decorativas */}
       <div
         style={{
-          marginTop: 48,
+          position: "absolute",
+          top: 100,
+          left: 40,
           fontFamily: fraunces,
-          fontStyle: "italic",
-          fontSize: 52,
-          lineHeight: 1.25,
-          color: C.primary,
+          fontWeight: 900,
+          fontSize: 380,
+          lineHeight: 1,
+          color: C.gold,
+          opacity: 0.18,
         }}
       >
-        {parts.map((p, i) => (
-          <span key={i} style={p.h ? { color: C.gold } : undefined}>
-            {p.t}
-          </span>
-        ))}
+        “
       </div>
-    </div>
+
+      <div style={{ position: "absolute", top: 200, left: 60, right: 60 }}>
+        <Pill bg={C.gold} fg={C.tealDeep}>Reflexão</Pill>
+        <div
+          style={{
+            marginTop: 56,
+            fontFamily: fraunces,
+            fontStyle: "italic",
+            fontWeight: 700,
+            fontSize: 60,
+            lineHeight: 1.22,
+            color: C.cream,
+          }}
+        >
+          {parts.map((p, i) =>
+            p.h ? (
+              <span
+                key={i}
+                style={{
+                  color: C.gold,
+                  borderBottom: `4px solid ${C.gold}`,
+                  paddingBottom: 2,
+                }}
+              >
+                {p.t}
+              </span>
+            ) : (
+              <span key={i}>{p.t}</span>
+            )
+          )}
+        </div>
+      </div>
+    </>
   );
 }
 
 /* ============== SLIDE 5 — PARA HOJE ============== */
 function Slide5({ data }: { data: CarrosselData }) {
   const items = (data.aplicacao || "Ação 1\nAção 2\nAção 3")
-    .split("\n")
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .slice(0, 4);
+    .split("\n").map((s) => s.trim()).filter(Boolean).slice(0, 3);
+
+  const cardStyles = [
+    { bg: C.coral, fg: C.cream, num: C.gold },
+    { bg: C.tealDeep, fg: C.cream, num: C.gold },
+    { bg: C.gold, fg: C.tealDeep, num: C.coralDeep },
+  ];
+
   return (
-    <div style={{ position: "absolute", top: 192, left: 72, right: 72 }}>
-      <SectionLabel>Para hoje</SectionLabel>
-      <Divider />
-      <ul style={{ listStyle: "none", padding: 0, margin: "56px 0 0 0" }}>
-        {items.map((it, i) => (
-          <li
-            key={i}
-            style={{
-              display: "flex",
-              gap: 16,
-              fontFamily: inter,
-              fontSize: 30,
-              lineHeight: 1.7,
-              color: C.primary,
-              marginBottom: i === items.length - 1 ? 0 : 20,
-            }}
-          >
-            <span style={{ color: C.gold }}>—</span>
-            <span>{it}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <>
+      <div style={{ position: "absolute", inset: 0, background: C.sand }} />
+
+      <div style={{ position: "absolute", top: 200, left: 60, right: 60 }}>
+        <Pill bg={C.coral} fg={C.cream}>Para hoje</Pill>
+      </div>
+
+      <div
+        style={{
+          position: "absolute",
+          top: 310,
+          left: 60,
+          right: 60,
+          display: "flex",
+          flexDirection: "column",
+          gap: 22,
+        }}
+      >
+        {items.map((it, i) => {
+          const s = cardStyles[i] ?? cardStyles[0];
+          return (
+            <div
+              key={i}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 28,
+                padding: "30px 40px",
+                background: s.bg,
+                color: s.fg,
+                borderRadius: 24,
+                boxShadow: "0 12px 30px rgba(0,0,0,0.10)",
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: fraunces,
+                  fontStyle: "italic",
+                  fontWeight: 900,
+                  fontSize: 80,
+                  lineHeight: 1,
+                  color: s.num,
+                  minWidth: 90,
+                }}
+              >
+                {String(i + 1).padStart(2, "0")}
+              </div>
+              <div
+                style={{
+                  fontFamily: inter,
+                  fontWeight: 700,
+                  fontSize: 32,
+                  lineHeight: 1.25,
+                }}
+              >
+                {it}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </>
   );
 }
 
 /* ============== SLIDE 6 — PENSE NISSO ============== */
 function Slide6({ data }: { data: CarrosselData }) {
   return (
-    <div style={{ position: "absolute", top: 192, left: 72, right: 72 }}>
-      <SectionLabel>Pense nisso</SectionLabel>
-      <Divider />
+    <>
       <div
         style={{
-          marginTop: 56,
-          fontFamily: fraunces,
-          fontStyle: "italic",
-          fontWeight: 700,
-          fontSize: 64,
-          lineHeight: 1.18,
-          color: C.primary,
+          position: "absolute", inset: 0,
+          background: `linear-gradient(180deg, ${C.coral} 0%, ${C.gold} 50%, ${C.teal} 100%)`,
         }}
-      >
-        {data.pergunta || "Sua pergunta de fechamento aqui."}
+      />
+      <div style={{ position: "absolute", top: 200, left: 60, right: 60 }}>
+        <Pill bg={C.tealDeep} fg={C.gold}>Pense nisso</Pill>
+        <div
+          style={{
+            marginTop: 60,
+            fontFamily: fraunces,
+            fontStyle: "italic",
+            fontWeight: 900,
+            fontSize: 76,
+            lineHeight: 1.1,
+            color: C.cream,
+            textShadow: "0 4px 18px rgba(0,0,0,0.20)",
+          }}
+        >
+          {data.pergunta || "Sua pergunta de fechamento aqui."}
+        </div>
       </div>
+
       <div
         style={{
-          marginTop: 24,
-          fontFamily: inter,
-          fontSize: 13,
-          color: C.refText,
+          position: "absolute",
+          bottom: 130,
+          left: 60,
+          right: 60,
+          display: "flex",
+          gap: 14,
         }}
       >
-        Salve para não esquecer — 🔖
+        <Pill bg={C.cream} fg={C.tealDeep}>🔖 Salve</Pill>
+        <Pill bg={C.cream} fg={C.tealDeep}>💬 Comente</Pill>
+        <Pill bg={C.cream} fg={C.tealDeep}>↗ Compartilhe</Pill>
       </div>
-    </div>
+    </>
   );
 }
 
 /* ============== SLIDE 7 — CTA ============== */
 function Slide7() {
   return (
-    <div style={{ position: "absolute", top: 192, left: 72, right: 72 }}>
+    <>
       <div
         style={{
-          fontFamily: fraunces,
-          fontStyle: "italic",
-          fontWeight: 700,
-          fontSize: 52,
-          lineHeight: 1.2,
-          color: C.gold,
+          position: "absolute", inset: 0,
+          background: `linear-gradient(160deg, ${C.tealDeep} 0%, ${C.tealInk} 100%)`,
         }}
-      >
-        Leia o devocional completo
+      />
+      {/* Sol grande */}
+      <svg width="700" height="700" style={{ position: "absolute", bottom: -200, right: -150, opacity: 0.55 }}>
+        {[120, 180, 250, 330].map((r) => (
+          <circle key={r} cx="350" cy="350" r={r} fill="none" stroke={C.gold} strokeWidth="3" />
+        ))}
+        <circle cx="350" cy="350" r="80" fill={C.gold} />
+      </svg>
+
+      <div style={{ position: "absolute", top: 200, left: 60, right: 60 }}>
+        <Pill bg={C.coral} fg={C.cream}>O texto completo te espera</Pill>
+        <div
+          style={{
+            marginTop: 50,
+            fontFamily: fraunces,
+            fontStyle: "italic",
+            fontWeight: 900,
+            fontSize: 80,
+            lineHeight: 1.05,
+            color: C.cream,
+            maxWidth: "85%",
+          }}
+        >
+          Leia o devocional <span style={{ color: C.gold }}>completo</span>.
+        </div>
       </div>
+
       <div
         style={{
-          marginTop: 20,
-          fontFamily: mono,
-          fontSize: 20,
-          color: C.primary,
+          position: "absolute",
+          bottom: 180,
+          left: 60,
+          right: 60,
+          display: "flex",
+          flexDirection: "column",
+          gap: 18,
         }}
       >
-        fontedealegria.com.br
+        <div
+          style={{
+            display: "inline-block",
+            alignSelf: "flex-start",
+            padding: "22px 36px",
+            background: C.coral,
+            color: C.cream,
+            borderRadius: 999,
+            fontFamily: inter,
+            fontWeight: 800,
+            fontSize: 32,
+            letterSpacing: "0.02em",
+            boxShadow: "0 16px 40px rgba(213,72,46,0.55)",
+          }}
+        >
+          fontedealegria.com.br
+        </div>
+        <div style={{ color: C.goldSoft, fontFamily: inter, fontWeight: 700, fontSize: 26 }}>
+          @fontedealegriadiaria
+        </div>
+        <div style={{ color: C.cream, fontFamily: inter, fontSize: 20, opacity: 0.85, marginTop: 4 }}>
+          Toque no link da bio →
+        </div>
       </div>
-      <div
-        style={{
-          marginTop: 8,
-          fontFamily: mono,
-          fontSize: 16,
-          color: C.secondary,
-        }}
-      >
-        @fontedealegriadiaria
-      </div>
-      <div
-        style={{
-          marginTop: 28,
-          fontFamily: inter,
-          fontSize: 16,
-          color: C.muted,
-        }}
-      >
-        Compartilhe com quem precisa ouvir isso hoje.
-      </div>
-    </div>
+    </>
   );
 }

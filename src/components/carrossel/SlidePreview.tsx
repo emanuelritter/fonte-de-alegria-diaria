@@ -36,7 +36,7 @@ export function SlidePreview({ data, current, setCurrent, onExport, exporting }:
   return (
     <div
       className="flex flex-col items-center gap-5 p-6 lg:p-8 min-h-full"
-      style={{ background: "#1A1B19" }}
+      style={{ background: "#F4D9A6" }}
     >
       <div ref={wrapRef} className="w-full flex justify-center">
         <div
@@ -71,7 +71,8 @@ export function SlidePreview({ data, current, setCurrent, onExport, exporting }:
               n === current ? "scale-125" : "hover:scale-110"
             )}
             style={{
-              background: n === current ? "#C8963A" : "#2A2520",
+              background: n === current ? "#D5482E" : "#0F4451",
+              opacity: n === current ? 1 : 0.35,
             }}
           />
         ))}
@@ -84,11 +85,11 @@ export function SlidePreview({ data, current, setCurrent, onExport, exporting }:
           size="sm"
           onClick={() => setCurrent(Math.max(1, current - 1))}
           disabled={current === 1}
-          className="text-[#9A9490] hover:text-[#F0EDE8] hover:bg-white/5"
+          className="text-[#0F4451] hover:bg-black/5"
         >
           <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
         </Button>
-        <span style={{ color: "#6B6560", fontFamily: "ui-monospace, monospace", fontSize: 13 }}>
+        <span style={{ color: "#0F4451", fontFamily: "ui-monospace, monospace", fontSize: 13 }}>
           {String(current).padStart(2, "0")} / {String(TOTAL_SLIDES).padStart(2, "0")}
         </span>
         <Button
@@ -96,7 +97,7 @@ export function SlidePreview({ data, current, setCurrent, onExport, exporting }:
           size="sm"
           onClick={() => setCurrent(Math.min(TOTAL_SLIDES, current + 1))}
           disabled={current === TOTAL_SLIDES}
-          className="text-[#9A9490] hover:text-[#F0EDE8] hover:bg-white/5"
+          className="text-[#0F4451] hover:bg-black/5"
         >
           Próximo <ChevronRight className="h-4 w-4 ml-1" />
         </Button>
@@ -109,8 +110,8 @@ export function SlidePreview({ data, current, setCurrent, onExport, exporting }:
         size="lg"
         className="rounded-full px-8"
         style={{
-          background: "#C8963A",
-          color: "#0E0F0D",
+          background: "#D5482E",
+          color: "#FFF6E8",
         }}
       >
         {exporting.active ? (
