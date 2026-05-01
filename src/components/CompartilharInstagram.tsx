@@ -36,9 +36,10 @@ export const CompartilharInstagram = (props: Props) => {
         const { data, error } = await supabase.functions.invoke("gerar-hook-devocional", {
           body: { devocional_id: props.id },
         });
-        if (error) throw error;
+        if (error) throw new Error(error.message || "Falha ao gerar o hook do Stories.");
         if ((data as any)?.error) throw new Error((data as any).error);
-        hook = (data as any).hook;
+        hook = (data as any)?.hook;
+        if (!hook) throw new Error("O servidor não retornou texto para o Stories.");
       }
 
       const blob = await renderStoryPNG({
@@ -48,6 +49,7 @@ export const CompartilharInstagram = (props: Props) => {
         referencia: props.referencia,
         hook,
       });
+      if (!blob) throw new Error("Falha ao gerar a imagem.");
       downloadBlob(blob, storyFileName(props.data, props.titulo));
       toast.success("Arte do Stories baixada!", {
         description: "Poste e marque @fontedealegriadiaria 🌅",
@@ -56,7 +58,7 @@ export const CompartilharInstagram = (props: Props) => {
       console.error("[Stories] erro:", e);
       toast.error("Não foi possível gerar a arte", {
         description:
-          e?.message?.includes("Failed to fetch")
+          typeof e?.message === "string" && e.message.includes("Failed to fetch")
             ? "Sem conexão com o servidor. Tente novamente."
             : e?.message || "Tente novamente em instantes.",
       });

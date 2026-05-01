@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Sparkles, Trash2 } from "lucide-react";
+import JSZip from "jszip";
 
 import { PageShell } from "@/components/Layout/PageShell";
 import { Input } from "@/components/ui/input";
@@ -150,14 +151,23 @@ const GerarCarrossel = () => {
     try {
       if (document.fonts?.ready) await document.fonts.ready;
       const baseName = `fda-${form.data || "carrossel"}-${slugify(form.titulo || "slide")}`;
+      const zip = new JSZip();
       for (let i = 1; i <= TOTAL_SLIDES; i++) {
         setExporting({ active: true, current: i, total: TOTAL_SLIDES });
         const blob = await renderSlidePNG(form, i);
-        downloadBlob(blob, `${baseName}-${String(i).padStart(2, "0")}.png`);
-        // pequena pausa para o navegador respirar entre downloads
-        await new Promise((r) => setTimeout(r, 120));
+        zip.file(`slide-${String(i).padStart(2, "0")}.png`, blob);
       }
-      toast.success(`${TOTAL_SLIDES} slides baixados com sucesso!`);
+      const legenda = [
+        form.titulo || "Devocional Fonte de Alegria",
+        form.data ? `\nData: ${form.data}` : "",
+        form.referencia ? `\nReferência: ${form.referencia}` : "",
+        "\n\nLeia o devocional completo em https://fontedealegria.com.br",
+        "\n\n@fontedealegriadiaria",
+      ].join("");
+      zip.file("legenda.txt", legenda);
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      downloadBlob(zipBlob, `${baseName}.zip`);
+      toast.success(`ZIP com ${TOTAL_SLIDES} slides baixado!`);
     } catch (e) {
       console.error(e);
       toast.error("Falha ao exportar. Tente novamente.");
