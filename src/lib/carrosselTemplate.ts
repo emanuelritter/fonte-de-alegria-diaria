@@ -111,28 +111,29 @@ const drawCreamGeo = (ctx: CanvasRenderingContext2D) => {
 };
 
 const drawSplitHero = (ctx: CanvasRenderingContext2D, sun: HTMLImageElement | null) => {
-  // Metade superior coral, inferior teal
+  // Coral no topo (~62%), teal embaixo
+  const splitY = Math.round(H * 0.62);
   ctx.fillStyle = C.coral;
-  ctx.fillRect(0, 0, W, H / 2);
+  ctx.fillRect(0, 0, W, splitY);
   ctx.fillStyle = C.tealDeep;
-  ctx.fillRect(0, H / 2, W, H / 2);
+  ctx.fillRect(0, splitY, W, H - splitY);
   // Linha dourada divisória
   ctx.fillStyle = C.gold;
-  ctx.fillRect(0, H / 2 - 3, W, 6);
-  // Círculo dourado gigante (sol estilizado) no centro
+  ctx.fillRect(0, splitY - 3, W, 6);
+  // Sol vive no bloco teal (não compete com o texto)
   if (sun) {
-    const size = 520;
+    const size = 360;
     ctx.save();
     ctx.globalAlpha = 0.95;
-    ctx.drawImage(sun, (W - size) / 2, H / 2 - size / 2, size, size);
+    ctx.drawImage(sun, (W - size) / 2, splitY + (H - splitY) / 2 - size / 2 - 20, size, size);
     ctx.restore();
   } else {
     ctx.fillStyle = C.gold;
     ctx.beginPath();
-    ctx.arc(W / 2, H / 2, 220, 0, Math.PI * 2);
+    ctx.arc(W / 2, splitY + (H - splitY) / 2 - 20, 160, 0, Math.PI * 2);
     ctx.fill();
   }
-  // Anéis decorativos no canto
+  // Anéis decorativos no canto sup esq
   ctx.strokeStyle = "rgba(244,192,77,0.45)";
   ctx.lineWidth = 3;
   for (let r = 50; r <= 160; r += 30) {
@@ -225,24 +226,49 @@ const slide1 = (ctx: CanvasRenderingContext2D, hook: string, sun: HTMLImageEleme
   const spaced = "DEVOCIONAL DO DIA".split("").join(" ");
   ctx.fillText(spaced, W / 2, 170);
 
-  // Hook gigante centralizado, com leve sombra para contraste sobre o sol
+  // Faixa coral à disposição do hook (acima da divisória teal)
+  const splitY = Math.round(H * 0.62);
+  const blockTop = 220;
+  const blockBottom = splitY - 40;
+  const blockH = blockBottom - blockTop;
+
+  // Auto-shrink garantindo que cabe no bloco
+  const sizes = [88, 78, 70, 62, 56, 50, 44];
+  let chosen = sizes[sizes.length - 1];
+  let chosenH = 0;
+  for (const s of sizes) {
+    ctx.font = `700 ${s}px Fraunces, Georgia, serif`;
+    const h = measureWrapped(ctx, hook, W - 160, s * 1.12);
+    if (h <= blockH - 60) { chosen = s; chosenH = h; break; }
+    chosenH = h;
+  }
+
+  // Plate semi-transparente teal-deep para reforçar contraste
+  const plateW = W - 100;
+  const plateX = 50;
+  const plateH = Math.min(blockH, chosenH + 80);
+  const plateY = blockTop + (blockH - plateH) / 2;
+  ctx.fillStyle = "rgba(11,54,64,0.22)";
+  roundedRect(ctx, plateX, plateY, plateW, plateH, 28);
+  ctx.fill();
+
+  // Hook
   ctx.fillStyle = C.white;
-  const size = hook.length > 70 ? 64 : hook.length > 50 ? 78 : 92;
-  ctx.font = `700 ${size}px Fraunces, Georgia, serif`;
-  ctx.shadowColor = "rgba(11,54,64,0.45)";
-  ctx.shadowBlur = 18;
-  ctx.shadowOffsetY = 4;
-  const hookH = measureWrapped(ctx, hook, W - 140, size * 1.1);
-  drawWrappedText(ctx, hook, W / 2, (H - hookH) / 2 + size, W - 140, size * 1.1);
+  ctx.font = `700 ${chosen}px Fraunces, Georgia, serif`;
+  ctx.shadowColor = "rgba(11,54,64,0.55)";
+  ctx.shadowBlur = 16;
+  ctx.shadowOffsetY = 3;
+  const startY = plateY + (plateH - chosenH) / 2 + chosen;
+  drawWrappedText(ctx, hook, W / 2, startY, W - 160, chosen * 1.12);
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
   ctx.shadowOffsetY = 0;
 
-  // Indicador "arrasta"
-  ctx.fillStyle = "rgba(255,255,255,0.85)";
+  // Indicador "arrasta" sobre o teal (legível)
+  ctx.fillStyle = "rgba(255,255,255,0.9)";
   ctx.font = "500 24px Inter, sans-serif";
   ctx.fillText("arrasta →", W / 2, H - 110);
-  drawFooterHandle(ctx, "rgba(255,255,255,0.7)");
+  drawFooterHandle(ctx, "rgba(255,255,255,0.75)");
 };
 
 const slideTexto = (

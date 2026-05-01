@@ -25,6 +25,8 @@ const Index = () => {
           className="absolute inset-0 w-full h-full object-cover"
           fetchPriority="high"
         />
+        {/* Overlays para garantir contraste do título sobre o sol */}
+        <div className="absolute inset-0 bg-gradient-to-r from-[hsl(var(--primary))]/55 via-[hsl(var(--primary))]/15 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background/95" />
 
         <div className="container relative z-10 pb-20 md:pb-28">
@@ -33,7 +35,7 @@ const Index = () => {
               <Sparkles className="h-3.5 w-3.5" />
               Devocional diário
             </p>
-            <h1 className="font-serif text-5xl sm:text-6xl md:text-7xl lg:text-8xl leading-[0.95] text-white drop-shadow-lg">
+            <h1 className="font-serif text-5xl sm:text-6xl md:text-7xl lg:text-8xl leading-[0.95] text-white [text-shadow:0_4px_28px_rgba(11,54,64,0.65),0_2px_8px_rgba(11,54,64,0.55)]">
               <span className="italic font-medium">fonte de</span>
               <br />
               <span className="font-bold">alegria</span>
